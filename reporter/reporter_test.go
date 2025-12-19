@@ -192,11 +192,15 @@ func TestReporterStartStop(t *testing.T) {
 	// 啟動 reporter
 	go reporter.Start()
 
-	// 等待幾次報告
-	time.Sleep(200 * time.Millisecond)
+	// 等待第一次報告完成（Start() 會立即執行一次 report()）
+	// 增加等待時間以確保 goroutine 有時間執行
+	time.Sleep(300 * time.Millisecond)
 
 	// 停止 reporter
 	reporter.Stop()
+
+	// 等待停止完成
+	time.Sleep(100 * time.Millisecond)
 
 	// 應該至少發送過一次
 	if atomic.LoadInt32(&requestCount) < 1 {

@@ -11,21 +11,21 @@ import (
 func SetupRoutes(router *mux.Router, cfg *config.Config) {
 	handler := NewHandler(cfg)
 
+	// CORS middleware 需要在路由之前應用
+	router.Use(corsMiddleware)
+
 	// 健康檢查
-	router.HandleFunc("/health", handler.HealthCheck).Methods("GET")
+	router.HandleFunc("/health", handler.HealthCheck).Methods("GET", "OPTIONS")
 
 	// 完整指標
-	router.HandleFunc("/metrics", handler.GetMetrics).Methods("GET")
+	router.HandleFunc("/metrics", handler.GetMetrics).Methods("GET", "OPTIONS")
 
 	// 個別指標
-	router.HandleFunc("/metrics/cpu", handler.GetCPUMetrics).Methods("GET")
-	router.HandleFunc("/metrics/memory", handler.GetMemoryMetrics).Methods("GET")
-	router.HandleFunc("/metrics/disk", handler.GetDiskMetrics).Methods("GET")
-	router.HandleFunc("/metrics/network", handler.GetNetworkMetrics).Methods("GET")
-	router.HandleFunc("/metrics/process", handler.GetProcessMetrics).Methods("GET")
-
-	// CORS
-	router.Use(corsMiddleware)
+	router.HandleFunc("/metrics/cpu", handler.GetCPUMetrics).Methods("GET", "OPTIONS")
+	router.HandleFunc("/metrics/memory", handler.GetMemoryMetrics).Methods("GET", "OPTIONS")
+	router.HandleFunc("/metrics/disk", handler.GetDiskMetrics).Methods("GET", "OPTIONS")
+	router.HandleFunc("/metrics/network", handler.GetNetworkMetrics).Methods("GET", "OPTIONS")
+	router.HandleFunc("/metrics/process", handler.GetProcessMetrics).Methods("GET", "OPTIONS")
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
