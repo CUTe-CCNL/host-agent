@@ -1,0 +1,24 @@
+server:
+  port: 9100
+  read_timeout: 15s
+  write_timeout: 15s
+  enable_auth: false
+  auth_token: "your-secret-token-here"
+
+collector:
+  interval: 5s
+  enable_cpu: true
+  enable_memory: true
+  enable_disk: true
+  enable_network: true
+  enable_process: false
+  process_limit: 10
+  disk_mount_points: []
+    # - "/"
+    # - "/home"
+
+report:
+  enabled: false
+  endpoint: "http://localhost:8080/api/metrics/collect"
+  interval: 30s
+  timeout: 10s
