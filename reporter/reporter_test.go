@@ -183,6 +183,12 @@ func TestReporterStartStop(t *testing.T) {
 	}))
 	defer server.Close()
 
+	// 確保服務器已準備好
+	_, err := http.Get(server.URL)
+	if err != nil {
+		t.Fatalf("Server not ready: %v", err)
+	}
+
 	cfg := newTestConfig()
 	cfg.Report.HTTP.Endpoint = server.URL
 	cfg.Report.Interval = 50 * time.Millisecond
@@ -192,9 +198,28 @@ func TestReporterStartStop(t *testing.T) {
 	// 啟動 reporter
 	go reporter.Start()
 
+	// 給 goroutine 一點時間啟動並執行第一次 report()
+	time.Sleep(50 * time.Millisecond)
+
 	// 等待第一次報告完成（Start() 會立即執行一次 report()）
-	// 增加等待時間以確保 goroutine 有時間執行
-	time.Sleep(300 * time.Millisecond)
+	// 使用輪詢來確保請求已被處理
+	timeout := time.After(2 * time.Second)
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	
+	requestReceived := false
+	for !requestReceived {
+		select {
+		case <-timeout:
+			// 在超時時停止 reporter，然後報告錯誤
+			reporter.Stop()
+			t.Fatalf("Timeout waiting for first request, count = %d", atomic.LoadInt32(&requestCount))
+		case <-ticker.C:
+			if atomic.LoadInt32(&requestCount) >= 1 {
+				requestReceived = true
+			}
+		}
+	}
 
 	// 停止 reporter
 	reporter.Stop()
