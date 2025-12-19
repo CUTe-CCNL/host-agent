@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Run tests
+        run: go test -v ./...
+
+      - name: Build all platforms
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          LDFLAGS="-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME} -s -w"
+
+          # Linux AMD64
+          GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/host-agent-linux-amd64
+
+          # Linux ARM64
+          GOOS=linux GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o dist/host-agent-linux-arm64
+
+          # Windows AMD64
+          GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/host-agent-windows-amd64.exe
+
+          # Windows AMD64 (no console)
+          GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS} -H windowsgui" -o dist/host-agent-windows-amd64-gui.exe
+
+          # macOS AMD64
+          GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/host-agent-darwin-amd64
+
+          # macOS ARM64
+          GOOS=darwin GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o dist/host-agent-darwin-arm64
+
+      - name: Package releases
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          cd dist
+
+          # Linux AMD64
+          mkdir -p linux-amd64
+          cp host-agent-linux-amd64 linux-amd64/host-agent
+          cp ../config.yaml linux-amd64/
+          cp ../installer/install.sh linux-amd64/
+          cp ../installer/uninstall.sh linux-amd64/
+          chmod +x linux-amd64/install.sh linux-amd64/uninstall.sh
+          tar -czf host-agent-${VERSION}-linux-amd64.tar.gz linux-amd64/
+
+          # Linux ARM64
+          mkdir -p linux-arm64
+          cp host-agent-linux-arm64 linux-arm64/host-agent
+          cp ../config.yaml linux-arm64/
+          cp ../installer/install.sh linux-arm64/
+          cp ../installer/uninstall.sh linux-arm64/
+          chmod +x linux-arm64/install.sh linux-arm64/uninstall.sh
+          tar -czf host-agent-${VERSION}-linux-arm64.tar.gz linux-arm64/
+
+          # Windows AMD64
+          mkdir -p windows-amd64
+          cp host-agent-windows-amd64.exe windows-amd64/host-agent.exe
+          cp host-agent-windows-amd64-gui.exe windows-amd64/host-agent-gui.exe
+          cp ../config.yaml windows-amd64/
+          cp ../installer/install.bat windows-amd64/
+          cp ../installer/uninstall.bat windows-amd64/
+          zip -r host-agent-${VERSION}-windows-amd64.zip windows-amd64/
+
+          # macOS AMD64
+          mkdir -p darwin-amd64
+          cp host-agent-darwin-amd64 darwin-amd64/host-agent
+          cp ../config.yaml darwin-amd64/
+          tar -czf host-agent-${VERSION}-darwin-amd64.tar.gz darwin-amd64/
+
+          # macOS ARM64
+          mkdir -p darwin-arm64
+          cp host-agent-darwin-arm64 darwin-arm64/host-agent
+          cp ../config.yaml darwin-arm64/
+          tar -czf host-agent-${VERSION}-darwin-arm64.tar.gz darwin-arm64/
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum *.tar.gz *.zip > checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
