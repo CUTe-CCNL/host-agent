@@ -44,7 +44,9 @@ func (p *Program) Stop(s service.Service) error {
 	if p.server != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		p.server.Shutdown(ctx)
+		if err := p.server.Shutdown(ctx); err != nil {
+			log.Printf("關閉伺服器時發生錯誤: %v", err)
+		}
 	}
 
 	if p.reporter != nil {
@@ -200,7 +202,9 @@ func RunService(cfg *config.Config) error {
 
 	err = s.Run()
 	if err != nil {
-		logger.Error(err)
+		if logErr := logger.Error(err); logErr != nil {
+			log.Printf("記錄錯誤時發生問題: %v", logErr)
+		}
 	}
 
 	return err

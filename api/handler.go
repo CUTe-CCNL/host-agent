@@ -78,16 +78,22 @@ func (h *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 
 	// 回傳 JSON
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(metrics)
+	if err := json.NewEncoder(w).Encode(metrics); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 // HealthCheck 健康檢查
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"status": "ok",
 		"time":   time.Now().Format(time.RFC3339),
-	})
+	}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 // GetCPUMetrics 只取得 CPU 指標
@@ -99,7 +105,10 @@ func (h *Handler) GetCPUMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cpu)
+	if err := json.NewEncoder(w).Encode(cpu); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 // GetMemoryMetrics 只取得記憶體指標

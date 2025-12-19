@@ -29,7 +29,11 @@ func TestHealthCheck(t *testing.T) {
 	handler.HealthCheck(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
@@ -62,7 +66,11 @@ func TestGetMetrics(t *testing.T) {
 	handler.GetMetrics(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
@@ -105,7 +113,11 @@ func TestGetMetricsWithAuth(t *testing.T) {
 		handler.GetMetrics(w, req)
 
 		resp := w.Result()
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
+		}()
 
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusUnauthorized)
@@ -121,7 +133,11 @@ func TestGetMetricsWithAuth(t *testing.T) {
 		handler.GetMetrics(w, req)
 
 		resp := w.Result()
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
+		}()
 
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusUnauthorized)
@@ -137,7 +153,11 @@ func TestGetMetricsWithAuth(t *testing.T) {
 		handler.GetMetrics(w, req)
 
 		resp := w.Result()
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("Failed to close response body: %v", err)
+			}
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
@@ -154,7 +174,11 @@ func TestGetCPUMetrics(t *testing.T) {
 	handler.GetCPUMetrics(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
@@ -179,7 +203,11 @@ func TestGetMemoryMetrics(t *testing.T) {
 	handler.GetMemoryMetrics(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
@@ -204,7 +232,11 @@ func TestGetDiskMetrics(t *testing.T) {
 	handler.GetDiskMetrics(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
@@ -225,7 +257,11 @@ func TestGetNetworkMetrics(t *testing.T) {
 	handler.GetNetworkMetrics(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
@@ -248,7 +284,11 @@ func TestGetProcessMetrics(t *testing.T) {
 	handler.GetProcessMetrics(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)

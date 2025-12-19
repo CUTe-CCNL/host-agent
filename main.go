@@ -55,7 +55,9 @@ func main() {
 	// 卸載服務
 	if *uninstallFlag {
 		// 先停止服務
-		service.StopService()
+		if err := service.StopService(); err != nil {
+			log.Printf("警告: 停止服務時發生錯誤: %v", err)
+		}
 
 		if err := service.UninstallService(); err != nil {
 			log.Fatalf("卸載服務失敗: %v", err)
@@ -111,12 +113,16 @@ func main() {
 	fmt.Println("按 Ctrl+C 停止")
 
 	prg := service.NewProgram(cfg)
-	prg.Start(nil)
+	if err := prg.Start(nil); err != nil {
+		log.Fatalf("啟動服務失敗: %v", err)
+	}
 
 	// 等待中斷信號
 	waitForSignal()
 
-	prg.Stop(nil)
+	if err := prg.Stop(nil); err != nil {
+		log.Printf("停止服務時發生錯誤: %v", err)
+	}
 }
 
 func getDefaultConfigPath() string {
