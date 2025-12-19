@@ -18,7 +18,38 @@ collector:
     # - "/home"
 
 report:
-  enabled: false
-  endpoint: "http://localhost:8080/api/metrics/collect"
+  enabled: true
+  mode: "kafka"  # "http", "kafka", "both"
   interval: 30s
   timeout: 10s
+
+  # HTTP 模式設定
+  http:
+    endpoint: "http://localhost:8080/api/metrics/collect"
+
+  # Kafka 模式設定
+  kafka:
+    brokers:
+      - "localhost:9092"
+      # - "kafka-1:9092"
+      # - "kafka-2:9092"
+    topic: "host-metrics"
+    compression: "gzip"  # none, gzip, snappy, lz4, zstd
+    required_acks: 1     # 0=不等待, 1=等待leader, -1=等待所有副本
+    max_retries: 3
+    retry_backoff: 100ms
+
+    # SASL 認證（可選）
+    sasl:
+      enabled: false
+      mechanism: "PLAIN"  # PLAIN, SCRAM-SHA-256, SCRAM-SHA-512
+      username: ""
+      password: ""
+
+    # TLS 加密（可選）
+    tls:
+      enabled: false
+      cert_file: ""
+      key_file: ""
+      ca_file: ""
+      insecure_skip_verify: false

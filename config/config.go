@@ -28,10 +28,42 @@ type Config struct {
 	} `yaml:"collector"`
 
 	Report struct {
-		Endpoint string        `yaml:"endpoint"` // Spring Boot backend URL
-		Interval time.Duration `yaml:"interval"`
 		Enabled  bool          `yaml:"enabled"`
+		Mode     string        `yaml:"mode"` // "http", "kafka", "both"
+		Interval time.Duration `yaml:"interval"`
 		Timeout  time.Duration `yaml:"timeout"`
+
+		// HTTP 模式設定
+		HTTP struct {
+			Endpoint string `yaml:"endpoint"`
+		} `yaml:"http"`
+
+		// Kafka 模式設定
+		Kafka struct {
+			Brokers      []string      `yaml:"brokers"`       // ["localhost:9092"]
+			Topic        string        `yaml:"topic"`         // "host-metrics"
+			Compression  string        `yaml:"compression"`   // "none", "gzip", "snappy", "lz4", "zstd"
+			RequiredAcks int           `yaml:"required_acks"` // 0, 1, -1 (all)
+			MaxRetries   int           `yaml:"max_retries"`   // 重試次數
+			RetryBackoff time.Duration `yaml:"retry_backoff"` // 重試間隔
+
+			// SASL 認證（可選）
+			SASL struct {
+				Enabled   bool   `yaml:"enabled"`
+				Mechanism string `yaml:"mechanism"` // "PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"
+				Username  string `yaml:"username"`
+				Password  string `yaml:"password"`
+			} `yaml:"sasl"`
+
+			// TLS 設定（可選）
+			TLS struct {
+				Enabled            bool   `yaml:"enabled"`
+				CertFile           string `yaml:"cert_file"`
+				KeyFile            string `yaml:"key_file"`
+				CAFile             string `yaml:"ca_file"`
+				InsecureSkipVerify bool   `yaml:"insecure_skip_verify"`
+			} `yaml:"tls"`
+		} `yaml:"kafka"`
 	} `yaml:"report"`
 }
 
@@ -65,8 +97,17 @@ func Default() *Config {
 	cfg.Collector.ProcessLimit = 10
 
 	cfg.Report.Enabled = false
+	cfg.Report.Mode = "kafka"
 	cfg.Report.Interval = 30 * time.Second
 	cfg.Report.Timeout = 10 * time.Second
+
+	// Kafka 預設值
+	cfg.Report.Kafka.Brokers = []string{"localhost:9092"}
+	cfg.Report.Kafka.Topic = "host-metrics"
+	cfg.Report.Kafka.Compression = "gzip"
+	cfg.Report.Kafka.RequiredAcks = 1
+	cfg.Report.Kafka.MaxRetries = 3
+	cfg.Report.Kafka.RetryBackoff = 100 * time.Millisecond
 
 	return cfg
 }

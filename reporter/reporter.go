@@ -13,26 +13,48 @@ import (
 )
 
 type Reporter struct {
-	config *config.Config
-	client *http.Client
-	stop   chan struct{}
+	config        *config.Config
+	httpClient    *http.Client
+	kafkaProducer *KafkaProducer
+	stop          chan struct{}
 }
 
 func NewReporter(cfg *config.Config) *Reporter {
-	return &Reporter{
+	r := &Reporter{
 		config: cfg,
-		client: &http.Client{
+		httpClient: &http.Client{
 			Timeout: cfg.Report.Timeout,
 		},
 		stop: make(chan struct{}),
 	}
+
+	// 如果啟用 Kafka，初始化 Producer
+	if cfg.Report.Mode == "kafka" || cfg.Report.Mode == "both" {
+		producer, err := NewKafkaProducer(cfg)
+		if err != nil {
+			log.Printf("警告: 無法建立 Kafka Producer: %v", err)
+			log.Println("將只使用 HTTP 模式")
+			if cfg.Report.Mode == "kafka" {
+				cfg.Report.Mode = "http" // 降級到 HTTP
+			} else {
+				cfg.Report.Mode = "http" // both -> http
+			}
+		} else {
+			r.kafkaProducer = producer
+		}
+	}
+
+	return r
 }
 
 func (r *Reporter) Start() {
 	ticker := time.NewTicker(r.config.Report.Interval)
 	defer ticker.Stop()
 
-	log.Printf("資料回報器啟動，間隔 %v", r.config.Report.Interval)
+	log.Printf("資料回報器啟動，模式: %s, 間隔: %v", r.config.Report.Mode, r.config.Report.Interval)
+
+	// 立即執行一次
+	r.report()
 
 	for {
 		select {
@@ -47,10 +69,35 @@ func (r *Reporter) Start() {
 
 func (r *Reporter) Stop() {
 	close(r.stop)
+
+	// 關閉 Kafka Producer
+	if r.kafkaProducer != nil {
+		if err := r.kafkaProducer.Close(); err != nil {
+			log.Printf("關閉 Kafka Producer 失敗: %v", err)
+		}
+	}
 }
 
 func (r *Reporter) report() {
 	// 收集指標
+	metrics := r.collectMetrics()
+
+	// 根據模式發送
+	switch r.config.Report.Mode {
+	case "http":
+		r.sendHTTP(metrics)
+	case "kafka":
+		r.sendKafka(metrics)
+	case "both":
+		// 並行發送
+		go r.sendHTTP(metrics)
+		go r.sendKafka(metrics)
+	default:
+		log.Printf("未知的回報模式: %s", r.config.Report.Mode)
+	}
+}
+
+func (r *Reporter) collectMetrics() *models.Metrics {
 	metrics := &models.Metrics{
 		Hostname:  collector.GetHostname(),
 		Timestamp: time.Now(),
@@ -76,32 +123,55 @@ func (r *Reporter) report() {
 		metrics.Network = network
 	}
 
+	if r.config.Collector.EnableProcess {
+		processes, _ := collector.CollectProcessMetrics(r.config.Collector.ProcessLimit)
+		metrics.Processes = processes
+	}
+
 	system, _ := collector.CollectSystemMetrics()
 	metrics.System = system
 
-	// 發送到後端
-	data, err := json.Marshal(metrics)
-	if err != nil {
-		log.Printf("序列化指標失敗: %v", err)
+	return metrics
+}
+
+func (r *Reporter) sendHTTP(metrics *models.Metrics) {
+	if r.config.Report.HTTP.Endpoint == "" {
 		return
 	}
 
-	resp, err := r.client.Post(
-		r.config.Report.Endpoint,
+	data, err := json.Marshal(metrics)
+	if err != nil {
+		log.Printf("HTTP: 序列化指標失敗: %v", err)
+		return
+	}
+
+	resp, err := r.httpClient.Post(
+		r.config.Report.HTTP.Endpoint,
 		"application/json",
 		bytes.NewBuffer(data),
 	)
 
 	if err != nil {
-		log.Printf("回報指標失敗: %v", err)
+		log.Printf("HTTP: 回報指標失敗: %v", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("回報指標失敗，狀態碼: %d", resp.StatusCode)
+		log.Printf("HTTP: 回報指標失敗，狀態碼: %d", resp.StatusCode)
 		return
 	}
 
-	log.Printf("成功回報指標到 %s", r.config.Report.Endpoint)
+	log.Printf("HTTP: 成功回報指標到 %s [%d bytes]", r.config.Report.HTTP.Endpoint, len(data))
+}
+
+func (r *Reporter) sendKafka(metrics *models.Metrics) {
+	if r.kafkaProducer == nil {
+		return
+	}
+
+	if err := r.kafkaProducer.SendMetrics(metrics); err != nil {
+		log.Printf("Kafka: 發送指標失敗: %v", err)
+		return
+	}
 }
