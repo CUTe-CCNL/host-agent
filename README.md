@@ -141,4 +141,4 @@ go run main.go -config config.yaml
 
 ## 授權
 
-MIT License
+Apache License 2.0
