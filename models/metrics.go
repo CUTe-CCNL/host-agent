@@ -50,15 +50,17 @@ type DiskMetrics struct {
 }
 
 type NetworkMetrics struct {
-	Interface   string `json:"interface"`
-	BytesSent   uint64 `json:"bytes_sent"`
-	BytesRecv   uint64 `json:"bytes_recv"`
-	PacketsSent uint64 `json:"packets_sent"`
-	PacketsRecv uint64 `json:"packets_recv"`
-	ErrorsIn    uint64 `json:"errors_in"`
-	ErrorsOut   uint64 `json:"errors_out"`
-	DropIn      uint64 `json:"drop_in"`
-	DropOut     uint64 `json:"drop_out"`
+	Interface   string   `json:"interface"`
+	MAC         string   `json:"mac,omitempty"`
+	IP          []string `json:"ip,omitempty"`
+	BytesSent   uint64   `json:"bytes_sent"`
+	BytesRecv   uint64   `json:"bytes_recv"`
+	PacketsSent uint64   `json:"packets_sent"`
+	PacketsRecv uint64   `json:"packets_recv"`
+	ErrorsIn    uint64   `json:"errors_in"`
+	ErrorsOut   uint64   `json:"errors_out"`
+	DropIn      uint64   `json:"drop_in"`
+	DropOut     uint64   `json:"drop_out"`
 }
 
 type SystemMetrics struct {

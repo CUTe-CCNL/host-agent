@@ -6,8 +6,8 @@ import (
 
 	"host-agent/models"
 
-	"github.com/shirou/gopsutil/v3/cpu"
-	"github.com/shirou/gopsutil/v3/load"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/load"
 )
 
 func CollectCPUMetrics() (*models.CPUMetrics, error) {

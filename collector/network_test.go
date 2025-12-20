@@ -25,6 +25,11 @@ func TestCollectNetworkMetrics(t *testing.T) {
 		if net.Interface == "lo" {
 			t.Errorf("metrics[%d].Interface should not be loopback", i)
 		}
+
+		// 驗證 MAC 和 IP 字段存在（可能為空，但結構應該存在）
+		// MAC 和 IP 可能為空，這是正常的（例如某些虛擬介面可能沒有 MAC）
+		_ = net.MAC
+		_ = net.IP
 	}
 }
 

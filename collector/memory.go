@@ -3,7 +3,7 @@ package collector
 import (
 	"host-agent/models"
 
-	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v4/mem"
 )
 
 func CollectMemoryMetrics() (*models.MemoryMetrics, error) {

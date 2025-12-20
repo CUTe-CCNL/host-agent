@@ -6,8 +6,8 @@ import (
 
 	"host-agent/models"
 
-	"github.com/shirou/gopsutil/v3/host"
-	"github.com/shirou/gopsutil/v3/process"
+	"github.com/shirou/gopsutil/v4/host"
+	"github.com/shirou/gopsutil/v4/process"
 )
 
 func CollectSystemMetrics() (*models.SystemMetrics, error) {

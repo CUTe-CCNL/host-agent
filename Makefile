@@ -23,7 +23,7 @@ build-windows:
 
 # 執行
 run:
-	go run main.go
+	go run main.go -config config.yaml
 
 # 執行（指定配置）
 run-config:

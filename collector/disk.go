@@ -3,7 +3,7 @@ package collector
 import (
 	"host-agent/models"
 
-	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v4/disk"
 )
 
 func CollectDiskMetrics(mountPoints []string) ([]models.DiskMetrics, error) {
