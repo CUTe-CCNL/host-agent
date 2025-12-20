@@ -58,7 +58,9 @@ func TestCORSMiddleware(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if cors := resp.Header.Get("Access-Control-Allow-Origin"); cors != "*" {
 		t.Errorf("Access-Control-Allow-Origin = %s, want *", cors)
@@ -82,7 +84,9 @@ func TestCORSPreflight(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("StatusCode = %d, want %d for OPTIONS preflight", resp.StatusCode, http.StatusOK)

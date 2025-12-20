@@ -155,7 +155,9 @@ func (r *Reporter) sendHTTP(metrics *models.Metrics) {
 		log.Printf("HTTP: 回報指標失敗: %v", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("HTTP: 回報指標失敗，狀態碼: %d", resp.StatusCode)

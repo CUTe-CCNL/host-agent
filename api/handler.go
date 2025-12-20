@@ -120,7 +120,10 @@ func (h *Handler) GetMemoryMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(memory)
+	if err := json.NewEncoder(w).Encode(memory); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 // GetDiskMetrics 只取得磁碟指標
@@ -132,7 +135,10 @@ func (h *Handler) GetDiskMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(disk)
+	if err := json.NewEncoder(w).Encode(disk); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 // GetNetworkMetrics 只取得網路指標
@@ -144,7 +150,10 @@ func (h *Handler) GetNetworkMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(network)
+	if err := json.NewEncoder(w).Encode(network); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 // GetProcessMetrics 只取得行程指標
@@ -156,5 +165,8 @@ func (h *Handler) GetProcessMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(processes)
+	if err := json.NewEncoder(w).Encode(processes); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
