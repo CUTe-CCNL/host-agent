@@ -94,7 +94,7 @@ jobs:
           fi
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: host-agent-${{ matrix.goos }}-${{ matrix.goarch }}
           path: host-agent-*
