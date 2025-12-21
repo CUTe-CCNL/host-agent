@@ -64,6 +64,7 @@ type NetworkMetrics struct {
 }
 
 type SystemMetrics struct {
+	HostID          string    `json:"host_id"`
 	OS              string    `json:"os"`
 	Platform        string    `json:"platform"`
 	PlatformVersion string    `json:"platform_version"`

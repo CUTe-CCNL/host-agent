@@ -19,6 +19,7 @@ func CollectSystemMetrics() (*models.SystemMetrics, error) {
 	processes, _ := process.Pids()
 
 	return &models.SystemMetrics{
+		HostID:          info.HostID,
 		OS:              info.OS,
 		Platform:        info.Platform,
 		PlatformVersion: info.PlatformVersion,

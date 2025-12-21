@@ -15,6 +15,11 @@ func TestCollectSystemMetrics(t *testing.T) {
 		t.Fatal("CollectSystemMetrics() returned nil")
 	}
 
+	// 檢查 HostID 不為空
+	if metrics.HostID == "" {
+		t.Error("HostID should not be empty")
+	}
+
 	// 檢查 OS 不為空
 	if metrics.OS == "" {
 		t.Error("OS should not be empty")
