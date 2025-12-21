@@ -64,6 +64,7 @@ type NetworkMetrics struct {
 }
 
 type SystemMetrics struct {
+	// HostID 是主機的唯一標識符，用於區分不同的主機。
 	HostID          string    `json:"host_id"`
 	OS              string    `json:"os"`
 	Platform        string    `json:"platform"`

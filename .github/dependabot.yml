@@ -26,6 +26,9 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
 
   # GitHub Actions 依賴更新
   - package-ecosystem: "github-actions"
@@ -38,3 +41,6 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
