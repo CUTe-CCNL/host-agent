@@ -14,6 +14,9 @@
   "automerge": true,
   "automergeType": "pr",
   "automergeStrategy": "squash",
+  "stabilityDays": 3,
+  "ignoreUnstable": true,
+  "requiredStatusChecks": [],
   "commitMessagePrefix": "chore",
   "commitMessageAction": "update",
   "commitMessageTopic": "{{depName}}",
@@ -35,6 +38,11 @@
       "groupName": "GitHub Actions dependencies",
       "groupSlug": "github-actions-deps",
       "labels": ["dependencies"]
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "platformAutomerge": false
     }
   ]
 }
