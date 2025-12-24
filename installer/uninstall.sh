@@ -21,20 +21,42 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# 檢測 init 系統
+INIT_SYSTEM=""
+if [ -d /run/systemd/system ] || systemctl --version >/dev/null 2>&1; then
+    INIT_SYSTEM="systemd"
+elif [ -f /etc/alpine-release ] || command -v rc-status >/dev/null 2>&1 || [ -f /sbin/openrc ]; then
+    INIT_SYSTEM="openrc"
+else
+    echo -e "${YELLOW}警告: 無法檢測 init 系統，預設使用 systemd${NC}"
+    INIT_SYSTEM="systemd"
+fi
+
 # 停止服務
 echo "停止服務..."
-systemctl stop $SERVICE_NAME 2>/dev/null || true
+if [ "$INIT_SYSTEM" = "systemd" ]; then
+    systemctl stop $SERVICE_NAME 2>/dev/null || true
+elif [ "$INIT_SYSTEM" = "openrc" ]; then
+    rc-service $SERVICE_NAME stop 2>/dev/null || true
+fi
 
 # 禁用服務
 echo "禁用服務..."
-systemctl disable $SERVICE_NAME 2>/dev/null || true
+if [ "$INIT_SYSTEM" = "systemd" ]; then
+    systemctl disable $SERVICE_NAME 2>/dev/null || true
+elif [ "$INIT_SYSTEM" = "openrc" ]; then
+    rc-update del $SERVICE_NAME 2>/dev/null || true
+fi
 
-# 刪除 systemd 服務檔
-echo "刪除 systemd 服務檔..."
-rm -f /etc/systemd/system/$SERVICE_NAME.service
-
-# 重新載入 systemd
-systemctl daemon-reload
+# 刪除服務檔
+if [ "$INIT_SYSTEM" = "systemd" ]; then
+    echo "刪除 systemd 服務檔..."
+    rm -f /etc/systemd/system/$SERVICE_NAME.service
+    systemctl daemon-reload
+elif [ "$INIT_SYSTEM" = "openrc" ]; then
+    echo "刪除 OpenRC 服務檔..."
+    rm -f /etc/init.d/$SERVICE_NAME
+fi
 
 # 刪除執行檔
 echo "刪除執行檔..."

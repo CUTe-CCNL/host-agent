@@ -1,14 +1,18 @@
 @echo off
+setlocal enabledelayedexpansion
+
+:: Change to script directory
+cd /d "%~dp0"
 
 echo ========================================
-echo   Host Agent 卸載程式 (Windows)
+echo   Host Agent Uninstall (Windows)
 echo ========================================
 echo.
 
-:: 檢查管理員權限
+:: Check admin privileges
 net session >nul 2>&1
 if %errorLevel% neq 0 (
-    echo 錯誤: 請以管理員身份執行此腳本
+    echo Error: Please run as administrator
     pause
     exit /b 1
 )
@@ -16,29 +20,56 @@ if %errorLevel% neq 0 (
 set SERVICE_NAME=HostAgent
 set INSTALL_DIR=C:\Program Files\HostAgent
 
-:: 停止服務
-echo 停止服務...
-sc stop %SERVICE_NAME%
-timeout /t 2 /nobreak >nul
-
-:: 刪除服務
-echo 刪除服務...
-sc delete %SERVICE_NAME%
-
-if %errorLevel% neq 0 (
-    echo 警告: 服務刪除失敗或服務不存在
-)
-
-:: 詢問是否刪除檔案
-set /p CONFIRM="是否刪除安裝目錄和配置檔? (Y/N): "
-if /i "%CONFIRM%"=="Y" (
-    echo 刪除檔案...
-    rd /s /q "%INSTALL_DIR%" 2>nul
-    echo 卸載完成
+:: Check if service exists
+echo Checking service status...
+sc query %SERVICE_NAME% >nul 2>&1
+if %errorLevel% equ 0 (
+    echo Service found: %SERVICE_NAME%
+    
+    :: Stop service
+    echo Stopping service...
+    sc stop %SERVICE_NAME% >nul 2>&1
+    timeout /t 2 /nobreak >nul
+    
+    :: Delete service
+    echo Deleting service...
+    sc delete %SERVICE_NAME% >nul 2>&1
+    if %errorLevel% equ 0 (
+        echo Service deleted successfully
+    ) else (
+        echo Warning: Failed to delete service
+    )
 ) else (
-    echo 保留安裝目錄: %INSTALL_DIR%
+    echo Service not found or already deleted
 )
 
 echo.
-echo 卸載完成
+
+:: Check if install directory exists
+if exist "%INSTALL_DIR%" (
+    echo Install directory found: %INSTALL_DIR%
+    echo.
+    
+    :: Ask to delete files
+    set /p CONFIRM="Delete installation directory and config files? (Y/N): "
+    if /i "!CONFIRM!"=="Y" (
+        echo Deleting files...
+        rd /s /q "%INSTALL_DIR%" 2>nul
+        if exist "%INSTALL_DIR%" (
+            echo Warning: Some files could not be deleted
+        ) else (
+            echo Installation directory deleted successfully
+        )
+    ) else (
+        echo Keeping installation directory: %INSTALL_DIR%
+    )
+) else (
+    echo Installation directory not found: %INSTALL_DIR%
+)
+
+echo.
+echo ========================================
+echo   Uninstall Complete
+echo ========================================
+echo.
 pause

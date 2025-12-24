@@ -13,15 +13,16 @@ collector:
   enable_network: true
   enable_process: false
   process_limit: 10
-  disk_mount_points: []
+  disk_mount_points:
+    []
     # - "/"
     # - "/home"
 
 report:
   enabled: true
-  mode: "kafka"  # "http", "kafka", "both"
-  interval: 30s
-  timeout: 10s
+  mode: "kafka" # "http", "kafka", "both"
+  interval: 5s
+  timeout: 5s
 
   # HTTP 模式設定
   http:
@@ -31,18 +32,16 @@ report:
   kafka:
     brokers:
       - "localhost:9092"
-      # - "kafka-1:9092"
-      # - "kafka-2:9092"
     topic: "host-metrics"
-    compression: "gzip"  # none, gzip, snappy, lz4, zstd
-    required_acks: 1     # 0=不等待, 1=等待leader, -1=等待所有副本
+    compression: "gzip" # none, gzip, snappy, lz4, zstd
+    required_acks: 1 # 0=不等待, 1=等待leader, -1=等待所有副本
     max_retries: 3
     retry_backoff: 100ms
 
     # SASL 認證（可選）
     sasl:
       enabled: false
-      mechanism: "PLAIN"  # PLAIN, SCRAM-SHA-256, SCRAM-SHA-512
+      mechanism: "PLAIN" # PLAIN, SCRAM-SHA-256, SCRAM-SHA-512
       username: ""
       password: ""
 
