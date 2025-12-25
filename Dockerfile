@@ -21,7 +21,7 @@ COPY . .
 RUN go test -v -race -coverprofile=coverage.out ./...
 
 # 執行 lint
-RUN golangci-lint run --timeout=5m
+RUN GOFLAGS="-buildvcs=false" golangci-lint run --timeout=5m
 
 # 編譯
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o host-agent .
