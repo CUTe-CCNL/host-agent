@@ -7,7 +7,8 @@ WORKDIR /app
 
 # 安裝編譯依賴和 golangci-lint
 RUN apk add --no-cache git curl build-base
-RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin latest
+RUN curl -sSfL https://golangci-lint.run/install.sh | sh -s v2.7.2
+
 
 # 複製 go mod 檔案
 COPY go.mod go.sum ./
