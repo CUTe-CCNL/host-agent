@@ -1,10 +1,12 @@
 # Build stage
 FROM golang:1.25.5-alpine AS builder
 
+ENV CGO_ENABLED=1
+
 WORKDIR /app
 
 # 安裝編譯依賴和 golangci-lint
-RUN apk add --no-cache git curl
+RUN apk add --no-cache git curl build-base
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin latest
 
 # 複製 go mod 檔案
