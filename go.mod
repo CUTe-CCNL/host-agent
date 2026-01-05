@@ -6,7 +6,7 @@ require (
 	github.com/IBM/sarama v1.46.3
 	github.com/gorilla/mux v1.8.1
 	github.com/kardianos/service v1.2.4
-	github.com/shirou/gopsutil/v4 v4.25.11
+	github.com/shirou/gopsutil/v4 v4.25.12
 	github.com/xdg-go/scram v1.2.0
 	gopkg.in/yaml.v3 v3.0.1
 )
