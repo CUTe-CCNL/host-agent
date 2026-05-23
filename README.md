@@ -91,8 +91,17 @@ collector:
 
 report:
   enabled: true           # 啟用自動回報
-  endpoint: "http://localhost:8080/api/metrics/collect"
+  mode: "rabbitmq"        # http, rabbitmq, both
   interval: 30s           # 回報間隔
+  http:
+    endpoint: "http://localhost:8080/api/metrics/collect"
+  rabbitmq:
+    url: "amqp://guest:guest@localhost:5672/"
+    exchange: "host-metrics"
+    exchange_type: "topic"
+    routing_key_template: "host.metrics"
+    durable: true
+    auto_delete: false
 ```
 
 ## 服務管理

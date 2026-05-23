@@ -13,10 +13,10 @@ import (
 )
 
 type Reporter struct {
-	config        *config.Config
-	httpClient    *http.Client
-	kafkaProducer *KafkaProducer
-	stop          chan struct{}
+	config           *config.Config
+	httpClient       *http.Client
+	rabbitMQProducer *RabbitMQProducer
+	stop             chan struct{}
 }
 
 func NewReporter(cfg *config.Config) *Reporter {
@@ -28,19 +28,19 @@ func NewReporter(cfg *config.Config) *Reporter {
 		stop: make(chan struct{}),
 	}
 
-	// 如果啟用 Kafka，初始化 Producer
-	if cfg.Report.Mode == "kafka" || cfg.Report.Mode == "both" {
-		producer, err := NewKafkaProducer(cfg)
+	// 如果啟用 RabbitMQ，初始化 Producer
+	if cfg.Report.Mode == "rabbitmq" || cfg.Report.Mode == "both" {
+		producer, err := NewRabbitMQProducer(cfg)
 		if err != nil {
-			log.Printf("警告: 無法建立 Kafka Producer: %v", err)
+			log.Printf("警告: 無法建立 RabbitMQ Producer: %v", err)
 			log.Println("將只使用 HTTP 模式")
-			if cfg.Report.Mode == "kafka" {
+			if cfg.Report.Mode == "rabbitmq" {
 				cfg.Report.Mode = "http" // 降級到 HTTP
 			} else {
 				cfg.Report.Mode = "http" // both -> http
 			}
 		} else {
-			r.kafkaProducer = producer
+			r.rabbitMQProducer = producer
 		}
 	}
 
@@ -70,10 +70,10 @@ func (r *Reporter) Start() {
 func (r *Reporter) Stop() {
 	close(r.stop)
 
-	// 關閉 Kafka Producer
-	if r.kafkaProducer != nil {
-		if err := r.kafkaProducer.Close(); err != nil {
-			log.Printf("關閉 Kafka Producer 失敗: %v", err)
+	// 關閉 RabbitMQ Producer
+	if r.rabbitMQProducer != nil {
+		if err := r.rabbitMQProducer.Close(); err != nil {
+			log.Printf("關閉 RabbitMQ Producer 失敗: %v", err)
 		}
 	}
 }
@@ -86,12 +86,12 @@ func (r *Reporter) report() {
 	switch r.config.Report.Mode {
 	case "http":
 		r.sendHTTP(metrics)
-	case "kafka":
-		r.sendKafka(metrics)
+	case "rabbitmq":
+		r.sendRabbitMQ(metrics)
 	case "both":
 		// 並行發送
 		go r.sendHTTP(metrics)
-		go r.sendKafka(metrics)
+		go r.sendRabbitMQ(metrics)
 	default:
 		log.Printf("未知的回報模式: %s", r.config.Report.Mode)
 	}
@@ -167,13 +167,13 @@ func (r *Reporter) sendHTTP(metrics *models.Metrics) {
 	log.Printf("HTTP: 成功回報指標到 %s [%d bytes]", r.config.Report.HTTP.Endpoint, len(data))
 }
 
-func (r *Reporter) sendKafka(metrics *models.Metrics) {
-	if r.kafkaProducer == nil {
+func (r *Reporter) sendRabbitMQ(metrics *models.Metrics) {
+	if r.rabbitMQProducer == nil {
 		return
 	}
 
-	if err := r.kafkaProducer.SendMetrics(metrics); err != nil {
-		log.Printf("Kafka: 發送指標失敗: %v", err)
+	if err := r.rabbitMQProducer.SendMetrics(metrics); err != nil {
+		log.Printf("RabbitMQ: 發送指標失敗: %v", err)
 		return
 	}
 }

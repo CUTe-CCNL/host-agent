@@ -256,17 +256,53 @@ func TestReporterModeHTTP(t *testing.T) {
 	}
 }
 
-func TestReporterModeKafkaFallback(t *testing.T) {
-	// 測試 Kafka 連線失敗時降級到 HTTP
+func TestReporterModeRabbitMQFallback(t *testing.T) {
+	// 測試 RabbitMQ 連線失敗時降級到 HTTP
 	cfg := newTestConfig()
-	cfg.Report.Mode = "kafka"
-	cfg.Report.Kafka.Brokers = []string{"nonexistent:9092"}
+	cfg.Report.Mode = "rabbitmq"
+	cfg.Report.RabbitMQ.URL = "amqp://guest:guest@127.0.0.1:1/"
 
 	reporter := NewReporter(cfg)
 
-	// 由於 Kafka 連線失敗，應該降級到 HTTP
-	if reporter.kafkaProducer != nil {
-		t.Error("Kafka producer should be nil when connection fails")
+	// 由於 RabbitMQ 連線失敗，應該降級到 HTTP
+	if reporter.rabbitMQProducer != nil {
+		t.Error("RabbitMQ producer should be nil when connection fails")
+	}
+}
+
+func TestRenderRoutingKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		hostname string
+		want     string
+	}{
+		{
+			name:     "fixed key",
+			template: "host.metrics",
+			hostname: "server-1",
+			want:     "host.metrics",
+		},
+		{
+			name:     "hostname template",
+			template: "host.metrics.{hostname}",
+			hostname: "server-1",
+			want:     "host.metrics.server-1",
+		},
+		{
+			name:     "empty hostname",
+			template: "host.metrics.{hostname}",
+			hostname: "",
+			want:     "host.metrics.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := renderRoutingKey(tt.template, tt.hostname); got != tt.want {
+				t.Errorf("renderRoutingKey() = %s, want %s", got, tt.want)
+			}
+		})
 	}
 }
 

@@ -29,7 +29,7 @@ type Config struct {
 
 	Report struct {
 		Enabled  bool          `yaml:"enabled"`
-		Mode     string        `yaml:"mode"` // "http", "kafka", "both"
+		Mode     string        `yaml:"mode"` // "http", "rabbitmq", "both"
 		Interval time.Duration `yaml:"interval"`
 		Timeout  time.Duration `yaml:"timeout"`
 
@@ -38,32 +38,15 @@ type Config struct {
 			Endpoint string `yaml:"endpoint"`
 		} `yaml:"http"`
 
-		// Kafka 模式設定
-		Kafka struct {
-			Brokers      []string      `yaml:"brokers"`       // ["localhost:9092"]
-			Topic        string        `yaml:"topic"`         // "host-metrics"
-			Compression  string        `yaml:"compression"`   // "none", "gzip", "snappy", "lz4", "zstd"
-			RequiredAcks int           `yaml:"required_acks"` // 0, 1, -1 (all)
-			MaxRetries   int           `yaml:"max_retries"`   // 重試次數
-			RetryBackoff time.Duration `yaml:"retry_backoff"` // 重試間隔
-
-			// SASL 認證（可選）
-			SASL struct {
-				Enabled   bool   `yaml:"enabled"`
-				Mechanism string `yaml:"mechanism"` // "PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"
-				Username  string `yaml:"username"`
-				Password  string `yaml:"password"`
-			} `yaml:"sasl"`
-
-			// TLS 設定（可選）
-			TLS struct {
-				Enabled            bool   `yaml:"enabled"`
-				CertFile           string `yaml:"cert_file"`
-				KeyFile            string `yaml:"key_file"`
-				CAFile             string `yaml:"ca_file"`
-				InsecureSkipVerify bool   `yaml:"insecure_skip_verify"`
-			} `yaml:"tls"`
-		} `yaml:"kafka"`
+		// RabbitMQ 模式設定
+		RabbitMQ struct {
+			URL                string `yaml:"url"`
+			Exchange           string `yaml:"exchange"`
+			ExchangeType       string `yaml:"exchange_type"`
+			RoutingKeyTemplate string `yaml:"routing_key_template"`
+			Durable            bool   `yaml:"durable"`
+			AutoDelete         bool   `yaml:"auto_delete"`
+		} `yaml:"rabbitmq"`
 	} `yaml:"report"`
 }
 
@@ -97,17 +80,17 @@ func Default() *Config {
 	cfg.Collector.ProcessLimit = 10
 
 	cfg.Report.Enabled = false
-	cfg.Report.Mode = "kafka"
+	cfg.Report.Mode = "rabbitmq"
 	cfg.Report.Interval = 30 * time.Second
 	cfg.Report.Timeout = 10 * time.Second
 
-	// Kafka 預設值
-	cfg.Report.Kafka.Brokers = []string{"localhost:9092"}
-	cfg.Report.Kafka.Topic = "host-metrics"
-	cfg.Report.Kafka.Compression = "gzip"
-	cfg.Report.Kafka.RequiredAcks = 1
-	cfg.Report.Kafka.MaxRetries = 3
-	cfg.Report.Kafka.RetryBackoff = 100 * time.Millisecond
+	// RabbitMQ 預設值
+	cfg.Report.RabbitMQ.URL = "amqp://guest:guest@localhost:5672/"
+	cfg.Report.RabbitMQ.Exchange = "host-metrics"
+	cfg.Report.RabbitMQ.ExchangeType = "topic"
+	cfg.Report.RabbitMQ.RoutingKeyTemplate = "host.metrics"
+	cfg.Report.RabbitMQ.Durable = true
+	cfg.Report.RabbitMQ.AutoDelete = false
 
 	return cfg
 }

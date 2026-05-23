@@ -65,25 +65,37 @@ func TestDefault(t *testing.T) {
 		t.Error("Report.Enabled should be false by default")
 	}
 
-	if cfg.Report.Mode != "kafka" {
-		t.Errorf("Report.Mode = %s, want kafka", cfg.Report.Mode)
+	if cfg.Report.Mode != "rabbitmq" {
+		t.Errorf("Report.Mode = %s, want rabbitmq", cfg.Report.Mode)
 	}
 
 	if cfg.Report.Interval != 30*time.Second {
 		t.Errorf("Report.Interval = %v, want 30s", cfg.Report.Interval)
 	}
 
-	// 檢查 Kafka 預設值
-	if len(cfg.Report.Kafka.Brokers) != 1 || cfg.Report.Kafka.Brokers[0] != "localhost:9092" {
-		t.Errorf("Report.Kafka.Brokers = %v, want [localhost:9092]", cfg.Report.Kafka.Brokers)
+	// 檢查 RabbitMQ 預設值
+	if cfg.Report.RabbitMQ.URL != "amqp://guest:guest@localhost:5672/" {
+		t.Errorf("Report.RabbitMQ.URL = %s, want amqp://guest:guest@localhost:5672/", cfg.Report.RabbitMQ.URL)
 	}
 
-	if cfg.Report.Kafka.Topic != "host-metrics" {
-		t.Errorf("Report.Kafka.Topic = %s, want host-metrics", cfg.Report.Kafka.Topic)
+	if cfg.Report.RabbitMQ.Exchange != "host-metrics" {
+		t.Errorf("Report.RabbitMQ.Exchange = %s, want host-metrics", cfg.Report.RabbitMQ.Exchange)
 	}
 
-	if cfg.Report.Kafka.Compression != "gzip" {
-		t.Errorf("Report.Kafka.Compression = %s, want gzip", cfg.Report.Kafka.Compression)
+	if cfg.Report.RabbitMQ.ExchangeType != "topic" {
+		t.Errorf("Report.RabbitMQ.ExchangeType = %s, want topic", cfg.Report.RabbitMQ.ExchangeType)
+	}
+
+	if cfg.Report.RabbitMQ.RoutingKeyTemplate != "host.metrics" {
+		t.Errorf("Report.RabbitMQ.RoutingKeyTemplate = %s, want host.metrics", cfg.Report.RabbitMQ.RoutingKeyTemplate)
+	}
+
+	if !cfg.Report.RabbitMQ.Durable {
+		t.Error("Report.RabbitMQ.Durable should be true by default")
+	}
+
+	if cfg.Report.RabbitMQ.AutoDelete {
+		t.Error("Report.RabbitMQ.AutoDelete should be false by default")
 	}
 }
 
@@ -113,12 +125,13 @@ report:
   timeout: 5s
   http:
     endpoint: "http://example.com/metrics"
-  kafka:
-    brokers:
-      - "kafka1:9092"
-      - "kafka2:9092"
-    topic: "test-metrics"
-    compression: "snappy"
+  rabbitmq:
+    url: "amqp://test:test@rabbitmq:5672/"
+    exchange: "test-metrics"
+    exchange_type: "fanout"
+    routing_key_template: "host.metrics.{hostname}"
+    durable: false
+    auto_delete: true
 `
 
 	// 建立臨時檔案
@@ -171,12 +184,28 @@ report:
 		t.Errorf("Report.HTTP.Endpoint = %s, want http://example.com/metrics", cfg.Report.HTTP.Endpoint)
 	}
 
-	if len(cfg.Report.Kafka.Brokers) != 2 {
-		t.Errorf("Report.Kafka.Brokers length = %d, want 2", len(cfg.Report.Kafka.Brokers))
+	if cfg.Report.RabbitMQ.URL != "amqp://test:test@rabbitmq:5672/" {
+		t.Errorf("Report.RabbitMQ.URL = %s, want amqp://test:test@rabbitmq:5672/", cfg.Report.RabbitMQ.URL)
 	}
 
-	if cfg.Report.Kafka.Topic != "test-metrics" {
-		t.Errorf("Report.Kafka.Topic = %s, want test-metrics", cfg.Report.Kafka.Topic)
+	if cfg.Report.RabbitMQ.Exchange != "test-metrics" {
+		t.Errorf("Report.RabbitMQ.Exchange = %s, want test-metrics", cfg.Report.RabbitMQ.Exchange)
+	}
+
+	if cfg.Report.RabbitMQ.ExchangeType != "fanout" {
+		t.Errorf("Report.RabbitMQ.ExchangeType = %s, want fanout", cfg.Report.RabbitMQ.ExchangeType)
+	}
+
+	if cfg.Report.RabbitMQ.RoutingKeyTemplate != "host.metrics.{hostname}" {
+		t.Errorf("Report.RabbitMQ.RoutingKeyTemplate = %s, want host.metrics.{hostname}", cfg.Report.RabbitMQ.RoutingKeyTemplate)
+	}
+
+	if cfg.Report.RabbitMQ.Durable {
+		t.Error("Report.RabbitMQ.Durable should be false")
+	}
+
+	if !cfg.Report.RabbitMQ.AutoDelete {
+		t.Error("Report.RabbitMQ.AutoDelete should be true")
 	}
 }
 
