@@ -6,7 +6,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/kardianos/service v1.2.4
 	github.com/rabbitmq/amqp091-go v1.11.0
-	github.com/shirou/gopsutil/v4 v4.26.4
+	github.com/shirou/gopsutil/v4 v4.26.5
 	gopkg.in/yaml.v3 v3.0.1
 )
 
