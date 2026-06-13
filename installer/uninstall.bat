@@ -19,6 +19,8 @@ if %errorLevel% neq 0 (
 
 set SERVICE_NAME=HostAgent
 set INSTALL_DIR=C:\Program Files\HostAgent
+set FIREWALL_RULE_NAME=Host Agent API 9100
+set FIREWALL_PORT=9100
 
 :: Check if service exists
 echo Checking service status...
@@ -41,6 +43,15 @@ if %errorLevel% equ 0 (
     )
 ) else (
     echo Service not found or already deleted
+)
+
+:: Remove firewall rule
+echo Removing firewall rule for TCP port %FIREWALL_PORT%...
+netsh advfirewall firewall delete rule name="%FIREWALL_RULE_NAME%" protocol=TCP localport=%FIREWALL_PORT% >nul 2>&1
+if %errorLevel% equ 0 (
+    echo Firewall rule deleted successfully
+) else (
+    echo Firewall rule not found or already deleted
 )
 
 echo.

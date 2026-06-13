@@ -23,6 +23,8 @@ set INSTALL_DIR=C:\Program Files\HostAgent
 set CONFIG_FILE=%INSTALL_DIR%\config.yaml
 set BINARY_NAME=host-agent.exe
 set DEST_BINARY=%INSTALL_DIR%\host-agent.exe
+set FIREWALL_RULE_NAME=Host Agent API 9100
+set FIREWALL_PORT=9100
 
 :: Check binary
 if not exist "%BINARY_NAME%" (
@@ -54,6 +56,16 @@ if not exist "%CONFIG_FILE%" (
         echo Installing config...
         copy /Y config.yaml "%CONFIG_FILE%" >nul
     )
+)
+
+:: Configure firewall
+echo Configuring firewall rule for TCP port %FIREWALL_PORT%...
+netsh advfirewall firewall delete rule name="%FIREWALL_RULE_NAME%" protocol=TCP localport=%FIREWALL_PORT% >nul 2>&1
+netsh advfirewall firewall add rule name="%FIREWALL_RULE_NAME%" dir=in action=allow protocol=TCP localport=%FIREWALL_PORT% profile=any enable=yes >nul 2>&1
+if %errorLevel% neq 0 (
+    echo Error: Failed to configure firewall rule for TCP port %FIREWALL_PORT%
+    pause
+    exit /b 1
 )
 
 :: Install service
@@ -94,6 +106,7 @@ echo.
 echo Service: %SERVICE_NAME%
 echo Path: %INSTALL_DIR%
 echo Config: %CONFIG_FILE%
+echo Firewall: TCP %FIREWALL_PORT% inbound allowed
 echo.
 echo Commands:
 echo   sc query %SERVICE_NAME%
