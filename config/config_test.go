@@ -97,6 +97,27 @@ func TestDefault(t *testing.T) {
 	if cfg.Report.RabbitMQ.AutoDelete {
 		t.Error("Report.RabbitMQ.AutoDelete should be false by default")
 	}
+
+	// 檢查 Plugins 預設值
+	if cfg.Plugins.Enabled {
+		t.Error("Plugins.Enabled should be false by default")
+	}
+
+	if cfg.Plugins.Directory != "/etc/host-agent/plugins.d" {
+		t.Errorf("Plugins.Directory = %s, want /etc/host-agent/plugins.d", cfg.Plugins.Directory)
+	}
+
+	if cfg.Plugins.StartupTimeout != 10*time.Second {
+		t.Errorf("Plugins.StartupTimeout = %v, want 10s", cfg.Plugins.StartupTimeout)
+	}
+
+	if cfg.Plugins.HealthInterval != 15*time.Second {
+		t.Errorf("Plugins.HealthInterval = %v, want 15s", cfg.Plugins.HealthInterval)
+	}
+
+	if cfg.Plugins.RequestTimeout != 30*time.Second {
+		t.Errorf("Plugins.RequestTimeout = %v, want 30s", cfg.Plugins.RequestTimeout)
+	}
 }
 
 func TestLoad(t *testing.T) {
@@ -132,6 +153,13 @@ report:
     routing_key_template: "host.metrics.{hostname}"
     durable: false
     auto_delete: true
+
+plugins:
+  enabled: true
+  directory: "/tmp/host-agent/plugins.d"
+  startup_timeout: 2s
+  health_interval: 3s
+  request_timeout: 4s
 `
 
 	// 建立臨時檔案
@@ -206,6 +234,26 @@ report:
 
 	if !cfg.Report.RabbitMQ.AutoDelete {
 		t.Error("Report.RabbitMQ.AutoDelete should be true")
+	}
+
+	if !cfg.Plugins.Enabled {
+		t.Error("Plugins.Enabled should be true")
+	}
+
+	if cfg.Plugins.Directory != "/tmp/host-agent/plugins.d" {
+		t.Errorf("Plugins.Directory = %s, want /tmp/host-agent/plugins.d", cfg.Plugins.Directory)
+	}
+
+	if cfg.Plugins.StartupTimeout != 2*time.Second {
+		t.Errorf("Plugins.StartupTimeout = %v, want 2s", cfg.Plugins.StartupTimeout)
+	}
+
+	if cfg.Plugins.HealthInterval != 3*time.Second {
+		t.Errorf("Plugins.HealthInterval = %v, want 3s", cfg.Plugins.HealthInterval)
+	}
+
+	if cfg.Plugins.RequestTimeout != 4*time.Second {
+		t.Errorf("Plugins.RequestTimeout = %v, want 4s", cfg.Plugins.RequestTimeout)
 	}
 }
 

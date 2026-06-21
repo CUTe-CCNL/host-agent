@@ -36,3 +36,10 @@ report:
     routing_key_template: "host.metrics"
     durable: true
     auto_delete: false
+
+plugins:
+  enabled: false
+  directory: "/etc/host-agent/plugins.d"
+  startup_timeout: 10s
+  health_interval: 15s
+  request_timeout: 30s

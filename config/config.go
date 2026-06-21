@@ -7,6 +7,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type PluginConfig struct {
+	Enabled        bool          `yaml:"enabled"`
+	Directory      string        `yaml:"directory"`
+	StartupTimeout time.Duration `yaml:"startup_timeout"`
+	HealthInterval time.Duration `yaml:"health_interval"`
+	RequestTimeout time.Duration `yaml:"request_timeout"`
+}
+
 type Config struct {
 	Server struct {
 		Port         int           `yaml:"port"`
@@ -48,6 +56,8 @@ type Config struct {
 			AutoDelete         bool   `yaml:"auto_delete"`
 		} `yaml:"rabbitmq"`
 	} `yaml:"report"`
+
+	Plugins PluginConfig `yaml:"plugins"`
 }
 
 func Load(path string) (*Config, error) {
@@ -56,12 +66,12 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
-	var cfg Config
+	cfg := Default()
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
 
-	return &cfg, nil
+	return cfg, nil
 }
 
 func Default() *Config {
@@ -91,6 +101,12 @@ func Default() *Config {
 	cfg.Report.RabbitMQ.RoutingKeyTemplate = "host.metrics"
 	cfg.Report.RabbitMQ.Durable = true
 	cfg.Report.RabbitMQ.AutoDelete = false
+
+	cfg.Plugins.Enabled = false
+	cfg.Plugins.Directory = "/etc/host-agent/plugins.d"
+	cfg.Plugins.StartupTimeout = 10 * time.Second
+	cfg.Plugins.HealthInterval = 15 * time.Second
+	cfg.Plugins.RequestTimeout = 30 * time.Second
 
 	return cfg
 }

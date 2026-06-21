@@ -72,6 +72,12 @@ GET /metrics/memory
 GET /metrics/disk
 GET /metrics/network
 GET /metrics/process
+
+# 插件管理
+GET  /plugins
+GET  /plugins/{id}
+POST /plugins/{id}/restart
+ANY  /plugin-api/{id}/{path}
 ```
 
 ## 配置說明
@@ -102,7 +108,16 @@ report:
     routing_key_template: "host.metrics"
     durable: true
     auto_delete: false
+
+plugins:
+  enabled: false
+  directory: "/etc/host-agent/plugins.d"
+  startup_timeout: 10s
+  health_interval: 15s
+  request_timeout: 30s
 ```
+
+插件 manifest 放在 `plugins.directory` 中，一個插件一個 YAML 檔。插件必須只在本機 loopback HTTP 監聽，host-agent 會統一代理到 `/plugin-api/{id}/...`。
 
 ## 服務管理
 

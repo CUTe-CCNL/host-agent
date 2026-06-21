@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -8,14 +9,29 @@ import (
 	"host-agent/collector"
 	"host-agent/config"
 	"host-agent/models"
+	agentplugin "host-agent/plugin"
+
+	"github.com/gorilla/mux"
 )
 
+type PluginRegistry interface {
+	List() []agentplugin.Info
+	Get(id string) (agentplugin.Info, bool)
+	Restart(ctx context.Context, id string) error
+	ProxyHTTP(w http.ResponseWriter, r *http.Request, id, path string)
+}
+
 type Handler struct {
-	config *config.Config
+	config  *config.Config
+	plugins PluginRegistry
 }
 
 func NewHandler(cfg *config.Config) *Handler {
-	return &Handler{config: cfg}
+	return NewHandlerWithPlugins(cfg, nil)
+}
+
+func NewHandlerWithPlugins(cfg *config.Config, plugins PluginRegistry) *Handler {
+	return &Handler{config: cfg, plugins: plugins}
 }
 
 // GetMetrics 取得所有指標
@@ -168,5 +184,97 @@ func (h *Handler) GetProcessMetrics(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(processes); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+}
+
+func (h *Handler) ListPlugins(w http.ResponseWriter, r *http.Request) {
+	if !h.authorize(w, r) {
+		return
+	}
+
+	plugins := []agentplugin.Info{}
+	if h.plugins != nil {
+		plugins = h.plugins.List()
+	}
+	h.writeJSON(w, plugins)
+}
+
+func (h *Handler) GetPlugin(w http.ResponseWriter, r *http.Request) {
+	if !h.authorize(w, r) {
+		return
+	}
+	if h.plugins == nil {
+		http.Error(w, "plugin not found", http.StatusNotFound)
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+	info, ok := h.plugins.Get(id)
+	if !ok {
+		http.Error(w, "plugin not found", http.StatusNotFound)
+		return
+	}
+	h.writeJSON(w, info)
+}
+
+func (h *Handler) RestartPlugin(w http.ResponseWriter, r *http.Request) {
+	if !h.authorize(w, r) {
+		return
+	}
+	if h.plugins == nil {
+		http.Error(w, "plugin not found", http.StatusNotFound)
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+	if _, ok := h.plugins.Get(id); !ok {
+		http.Error(w, "plugin not found", http.StatusNotFound)
+		return
+	}
+	if err := h.plugins.Restart(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+
+	h.writeJSON(w, map[string]string{"status": "restarted"})
+}
+
+func (h *Handler) ProxyPlugin(w http.ResponseWriter, r *http.Request) {
+	if !h.authorize(w, r) {
+		return
+	}
+	if h.plugins == nil {
+		http.Error(w, "plugin not found", http.StatusNotFound)
+		return
+	}
+
+	vars := mux.Vars(r)
+	path := vars["path"]
+	if path == "" {
+		path = "/"
+	} else {
+		path = "/" + path
+	}
+
+	h.plugins.ProxyHTTP(w, r, vars["id"], path)
+}
+
+func (h *Handler) authorize(w http.ResponseWriter, r *http.Request) bool {
+	if !h.config.Server.EnableAuth {
+		return true
+	}
+
+	token := r.Header.Get("Authorization")
+	if token != "Bearer "+h.config.Server.AuthToken {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return false
+	}
+	return true
+}
+
+func (h *Handler) writeJSON(w http.ResponseWriter, value interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(value); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

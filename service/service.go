@@ -8,6 +8,7 @@ import (
 
 	"host-agent/api"
 	"host-agent/config"
+	agentplugin "host-agent/plugin"
 	"host-agent/reporter"
 
 	"github.com/gorilla/mux"
@@ -18,6 +19,7 @@ type Program struct {
 	cfg      *config.Config
 	server   *api.Server
 	reporter *reporter.Reporter
+	plugins  *agentplugin.Registry
 	exit     chan struct{}
 }
 
@@ -53,14 +55,32 @@ func (p *Program) Stop(s service.Service) error {
 		p.reporter.Stop()
 	}
 
+	if p.plugins != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := p.plugins.Stop(ctx); err != nil {
+			log.Printf("停止插件時發生錯誤: %v", err)
+		}
+	}
+
 	return nil
 }
 
 // run 主要運行邏輯
 func (p *Program) run() {
+	if p.cfg.Plugins.Enabled {
+		p.plugins = agentplugin.NewRegistry(p.cfg.Plugins)
+		if err := p.plugins.Load(p.cfg.Plugins.Directory); err != nil {
+			log.Printf("載入插件 manifest 時發生錯誤: %v", err)
+			p.plugins = nil
+		} else if err := p.plugins.Start(context.Background()); err != nil {
+			log.Printf("啟動插件時發生錯誤: %v", err)
+		}
+	}
+
 	// 啟動 HTTP API 服務
 	router := mux.NewRouter()
-	api.SetupRoutes(router, p.cfg)
+	api.SetupRoutesWithPlugins(router, p.cfg, p.plugins)
 
 	p.server = api.NewServer(p.cfg, router)
 	go func() {
