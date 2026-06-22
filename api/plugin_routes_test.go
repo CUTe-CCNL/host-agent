@@ -52,7 +52,7 @@ func TestPluginRoutesRequireAuthWhenEnabled(t *testing.T) {
 	cfg.Server.AuthToken = "secret"
 
 	registry := &fakePluginRegistry{
-		infos: []agentplugin.Info{{ID: "firewall", Name: "Firewall", Status: agentplugin.StatusRunning}},
+		infos: []agentplugin.Info{{ID: "firewall", Name: "Firewall", Status: agentplugin.StatusRunning, Transport: "stdio-jsonrpc"}},
 	}
 	router := mux.NewRouter()
 	SetupRoutesWithPlugins(router, cfg, registry)
@@ -76,7 +76,7 @@ func TestPluginRoutesRequireAuthWhenEnabled(t *testing.T) {
 func TestPluginRoutesAllowRequestsWhenAuthDisabled(t *testing.T) {
 	cfg := config.Default()
 	registry := &fakePluginRegistry{
-		infos: []agentplugin.Info{{ID: "firewall", Name: "Firewall", Status: agentplugin.StatusRunning}},
+		infos: []agentplugin.Info{{ID: "firewall", Name: "Firewall", Status: agentplugin.StatusRunning, Transport: "stdio-jsonrpc"}},
 	}
 	router := mux.NewRouter()
 	SetupRoutesWithPlugins(router, cfg, registry)
@@ -95,12 +95,15 @@ func TestPluginRoutesAllowRequestsWhenAuthDisabled(t *testing.T) {
 	if info.ID != "firewall" {
 		t.Errorf("info.ID = %s, want firewall", info.ID)
 	}
+	if info.Transport != "stdio-jsonrpc" {
+		t.Errorf("info.Transport = %s, want stdio-jsonrpc", info.Transport)
+	}
 }
 
 func TestPluginRestartAndProxyRoutes(t *testing.T) {
 	cfg := config.Default()
 	registry := &fakePluginRegistry{
-		infos: []agentplugin.Info{{ID: "firewall", Name: "Firewall", Status: agentplugin.StatusRunning}},
+		infos: []agentplugin.Info{{ID: "firewall", Name: "Firewall", Status: agentplugin.StatusRunning, Transport: "stdio-jsonrpc"}},
 	}
 	router := mux.NewRouter()
 	SetupRoutesWithPlugins(router, cfg, registry)

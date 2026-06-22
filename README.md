@@ -117,7 +117,7 @@ plugins:
   request_timeout: 30s
 ```
 
-插件 manifest 放在 `plugins.directory` 中，一個插件一個 YAML 檔。插件必須只在本機 loopback HTTP 監聽，host-agent 會統一代理到 `/plugin-api/{id}/...`。
+插件 manifest 放在 `plugins.directory` 中，一個插件一個 YAML 檔。host-agent 會啟動插件子進程，透過 stdio newline-delimited JSON-RPC 2.0 與插件溝通，並統一對外提供 `/plugin-api/{id}/...` REST API。建立插件的完整流程請參考 `docs/plugins/README.md`。
 
 ## 服務管理
 
