@@ -421,9 +421,7 @@ func (r *Registry) stopPlugin(ctx context.Context, id string, status Status, mes
 		return nil
 	}
 
-	if cmd.ProcessState == nil {
-		_ = cmd.Process.Kill()
-	}
+	_ = cmd.Process.Kill()
 	if done == nil {
 		return nil
 	}
@@ -582,7 +580,7 @@ func (r *Registry) handleIPCClosed(id string, rpcClient *stdioRPCClient, err err
 	if healthCancel != nil {
 		healthCancel()
 	}
-	if cmd != nil && cmd.Process != nil && cmd.ProcessState == nil {
+	if cmd != nil && cmd.Process != nil {
 		_ = cmd.Process.Kill()
 	}
 }
