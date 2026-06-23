@@ -22,6 +22,8 @@ type Status string
 const (
 	TransportStdioJSONRPC = "stdio-jsonrpc"
 
+	maxPluginHTTPRequestBodyBytes = 6 * 1024 * 1024
+
 	StatusDisabled  Status = "disabled"
 	StatusStopped   Status = "stopped"
 	StatusStarting  Status = "starting"
@@ -212,9 +214,14 @@ func (r *Registry) ProxyHTTP(w http.ResponseWriter, req *http.Request, id, reque
 		return
 	}
 
-	body, err := io.ReadAll(req.Body)
+	body, err := io.ReadAll(http.MaxBytesReader(w, req.Body, maxPluginHTTPRequestBodyBytes))
 	if err != nil {
-		http.Error(w, "invalid request", http.StatusBadGateway)
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
 
@@ -414,9 +421,7 @@ func (r *Registry) stopPlugin(ctx context.Context, id string, status Status, mes
 		return nil
 	}
 
-	if cmd.ProcessState == nil {
-		_ = cmd.Process.Kill()
-	}
+	_ = cmd.Process.Kill()
 	if done == nil {
 		return nil
 	}
@@ -547,26 +552,36 @@ func (r *Registry) setHealthStatus(id string, rpcClient *stdioRPCClient, status 
 
 func (r *Registry) handleIPCClosed(id string, rpcClient *stdioRPCClient, err error) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	inst, ok := r.plugins[id]
 	if !ok || inst.rpc != rpcClient {
+		r.mu.Unlock()
 		return
 	}
 	if inst.status == StatusStopped || inst.status == StatusDisabled {
+		r.mu.Unlock()
 		return
 	}
 
+	cmd := inst.cmd
+	healthCancel := inst.healthCancel
 	inst.rpc = nil
+	inst.healthCancel = nil
 	inst.status = StatusFailed
 	inst.updatedAt = time.Now()
-	if inst.lastError != "" {
-		return
+	if inst.lastError == "" {
+		if err != nil {
+			inst.lastError = fmt.Sprintf("ipc closed: %v", err)
+		} else {
+			inst.lastError = "ipc closed"
+		}
 	}
-	if err != nil {
-		inst.lastError = fmt.Sprintf("ipc closed: %v", err)
-	} else {
-		inst.lastError = "ipc closed"
+	r.mu.Unlock()
+
+	if healthCancel != nil {
+		healthCancel()
+	}
+	if cmd != nil && cmd.Process != nil {
+		_ = cmd.Process.Kill()
 	}
 }
 
