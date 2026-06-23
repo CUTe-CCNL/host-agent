@@ -181,7 +181,10 @@ func testManifest(id string, methods []string, mode string) Manifest {
 		Enabled: true,
 		Command: os.Args[0],
 		Args:    []string{"-test.run=TestPluginHelperProcess"},
-		Env:     map[string]string{"HOST_AGENT_PLUGIN_HELPER": mode},
+		Env: map[string]string{
+			"HOST_AGENT_PLUGIN_HELPER": mode,
+			"GORACE":                   "atexit_sleep_ms=0",
+		},
 		Routes: []Route{
 			{PathPrefix: "/", Methods: methods},
 		},

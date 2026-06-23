@@ -354,7 +354,7 @@ func (r *Registry) startPlugin(ctx context.Context, id string) error {
 	default:
 	}
 
-	healthCtx, healthCancel := context.WithCancel(context.Background())
+	healthCtx, healthCancel := newPluginHealthContext()
 	started := false
 	r.mu.Lock()
 	inst, ok = r.plugins[id]
@@ -374,6 +374,10 @@ func (r *Registry) startPlugin(ctx context.Context, id string) error {
 
 	go r.healthLoop(healthCtx, id, rpcClient)
 	return nil
+}
+
+func newPluginHealthContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(context.Background())
 }
 
 func (r *Registry) stopPlugin(ctx context.Context, id string, status Status, message string) error {
