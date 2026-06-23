@@ -135,6 +135,8 @@ response:
 
 `body_base64` 是原始 HTTP body 的 base64 字串。插件回應 body 時也必須使用 base64。
 
+host-agent 在轉交 request 給插件前，會拒絕超過 6 MiB 的 HTTP request body，並回傳 `413 Request Entity Too Large`。
+
 ## Go 範例
 
 範例程式在 `docs/plugins/example-go/main.go`。它實作:

@@ -113,6 +113,9 @@ func runStdioPluginHelper(mode string) {
 					ID:      request.ID,
 					Error:   &testRPCError{Code: -32000, Message: "plugin failed"},
 				})
+			case "/close-ipc":
+				_ = os.Stdout.Close()
+				select {}
 			case "/invalid":
 				_, _ = fmt.Fprintln(os.Stdout, "not json")
 			case "/slow":
@@ -312,6 +315,28 @@ func TestProxyPreservesRequestAndResponse(t *testing.T) {
 	}
 }
 
+func TestProxyRejectsOversizedRequestBody(t *testing.T) {
+	registry := startTestRegistry(t, testManifest("echo", []string{http.MethodPost}, "serve"))
+
+	body := bytes.NewReader(bytes.Repeat([]byte("a"), maxPluginHTTPRequestBodyBytes+1))
+	req := httptest.NewRequest(http.MethodPost, "/plugin-api/echo/echo", body)
+	w := httptestRecorder()
+
+	registry.ProxyHTTP(w, req, "echo", "/echo")
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized request status = %d, want %d", w.Code, http.StatusRequestEntityTooLarge)
+	}
+
+	info, ok := registry.Get("echo")
+	if !ok {
+		t.Fatal("Get(echo) ok = false, want true")
+	}
+	if info.Status != StatusRunning {
+		t.Fatalf("Status = %s, want %s", info.Status, StatusRunning)
+	}
+}
+
 func TestProxyRejectsUnknownStoppedAndDisallowedMethod(t *testing.T) {
 	registry := NewRegistry(testRegistryConfig())
 
@@ -364,6 +389,34 @@ func TestProxyMapsIPCFailures(t *testing.T) {
 	registry.ProxyHTTP(w, req, "slow", "/slow")
 	if w.Code != http.StatusGatewayTimeout {
 		t.Fatalf("slow plugin status = %d, want %d", w.Code, http.StatusGatewayTimeout)
+	}
+}
+
+func TestRegistryKillsProcessWhenIPCCloses(t *testing.T) {
+	registry := startTestRegistry(t, testManifest("close", []string{http.MethodGet}, "serve"))
+
+	registry.mu.RLock()
+	inst := registry.plugins["close"]
+	waitDone := inst.waitDone
+	registry.mu.RUnlock()
+	if waitDone == nil {
+		t.Fatal("waitDone = nil, want process wait channel")
+	}
+
+	req := httptestRequest(http.MethodGet, "/plugin-api/close/close-ipc", "")
+	w := httptestRecorder()
+
+	registry.ProxyHTTP(w, req, "close", "/close-ipc")
+
+	if w.Code != http.StatusBadGateway {
+		t.Fatalf("closed ipc status = %d, want %d", w.Code, http.StatusBadGateway)
+	}
+	eventuallyStatus(t, registry, "close", StatusFailed)
+
+	select {
+	case <-waitDone:
+	case <-time.After(time.Second):
+		t.Fatal("plugin process still running after IPC closed")
 	}
 }
 
