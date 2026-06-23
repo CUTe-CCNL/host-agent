@@ -23,12 +23,10 @@ version: "0.1.0"
 enabled: true
 description: "Manage local firewall rules"
 command: "/bin/host-agent-firewall"
-args: ["--addr", "127.0.0.1:19101"]
+args: ["--stdio"]
 working_dir: "/opt/host-agent/plugins/firewall"
 env:
   LOG_LEVEL: "info"
-upstream_url: "http://127.0.0.1:19101"
-health_path: "/health"
 routes:
   - path_prefix: "/"
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
@@ -55,11 +53,44 @@ func TestLoadManifestsLoadsValidManifest(t *testing.T) {
 	if !manifest.Enabled {
 		t.Error("Enabled should be true")
 	}
-	if manifest.UpstreamURL != "http://127.0.0.1:19101" {
-		t.Errorf("UpstreamURL = %s, want http://127.0.0.1:19101", manifest.UpstreamURL)
-	}
 	if len(manifest.Routes) != 1 {
 		t.Fatalf("len(Routes) = %d, want 1", len(manifest.Routes))
+	}
+}
+
+func TestLoadManifestsLoadsDocsExampleManifest(t *testing.T) {
+	manifests, err := LoadManifests(filepath.Join("..", "docs", "plugins", "example-go"))
+	if err != nil {
+		t.Fatalf("LoadManifests() error = %v", err)
+	}
+
+	if len(manifests) != 1 {
+		t.Fatalf("len(manifests) = %d, want 1", len(manifests))
+	}
+
+	manifest := manifests[0]
+	if manifest.ID != "example-go" {
+		t.Errorf("ID = %s, want example-go", manifest.ID)
+	}
+	if manifest.Command != "/opt/host-agent/plugins/example-go/example-go-plugin" {
+		t.Errorf("Command = %s, want /opt/host-agent/plugins/example-go/example-go-plugin", manifest.Command)
+	}
+	wantRoutes := map[string][]string{
+		"/status": {"GET"},
+		"/echo":   {"GET", "POST"},
+		"/items":  {"GET", "POST", "DELETE"},
+	}
+	if len(manifest.Routes) != len(wantRoutes) {
+		t.Fatalf("len(Routes) = %d, want %d", len(manifest.Routes), len(wantRoutes))
+	}
+	for _, route := range manifest.Routes {
+		wantMethods, ok := wantRoutes[route.PathPrefix]
+		if !ok {
+			t.Fatalf("unexpected route path_prefix %q", route.PathPrefix)
+		}
+		if strings.Join(route.Methods, ",") != strings.Join(wantMethods, ",") {
+			t.Fatalf("route %s methods = %v, want %v", route.PathPrefix, route.Methods, wantMethods)
+		}
 	}
 }
 
@@ -87,16 +118,6 @@ func TestLoadManifestsRejectsInvalidMethod(t *testing.T) {
 	}
 }
 
-func TestLoadManifestsRejectsNonLoopbackUpstream(t *testing.T) {
-	dir := t.TempDir()
-	writeManifest(t, dir, "firewall.yaml", strings.Replace(validManifest("firewall"), "http://127.0.0.1:19101", "http://10.0.0.2:19101", 1))
-
-	_, err := LoadManifests(dir)
-	if err == nil {
-		t.Fatal("LoadManifests() error = nil, want non-loopback upstream error")
-	}
-}
-
 func TestLoadManifestsRejectsMissingRequiredFields(t *testing.T) {
 	dir := t.TempDir()
 	writeManifest(t, dir, "firewall.yaml", `
@@ -104,7 +125,6 @@ id: "firewall"
 name: "Firewall Manager"
 version: "0.1.0"
 enabled: true
-upstream_url: "http://127.0.0.1:19101"
 routes:
   - path_prefix: "/"
     methods: ["GET"]

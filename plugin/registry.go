@@ -2,11 +2,11 @@ package plugin
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"sort"
@@ -20,6 +20,8 @@ import (
 type Status string
 
 const (
+	TransportStdioJSONRPC = "stdio-jsonrpc"
+
 	StatusDisabled  Status = "disabled"
 	StatusStopped   Status = "stopped"
 	StatusStarting  Status = "starting"
@@ -36,14 +38,13 @@ type Info struct {
 	Description string    `json:"description,omitempty"`
 	Status      Status    `json:"status"`
 	Error       string    `json:"error,omitempty"`
-	UpstreamURL string    `json:"upstream_url"`
+	Transport   string    `json:"transport"`
 	Routes      []Route   `json:"routes,omitempty"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type Registry struct {
 	cfg     config.PluginConfig
-	client  *http.Client
 	mu      sync.RWMutex
 	plugins map[string]*instance
 }
@@ -55,7 +56,26 @@ type instance struct {
 	updatedAt    time.Time
 	cmd          *exec.Cmd
 	waitDone     chan struct{}
+	rpc          *stdioRPCClient
 	healthCancel context.CancelFunc
+}
+
+type pluginHealthResult struct {
+	OK bool `json:"ok"`
+}
+
+type pluginHTTPRequest struct {
+	Method     string              `json:"method"`
+	Path       string              `json:"path"`
+	RawQuery   string              `json:"raw_query"`
+	Headers    map[string][]string `json:"headers"`
+	BodyBase64 string              `json:"body_base64"`
+}
+
+type pluginHTTPResponse struct {
+	StatusCode int                 `json:"status_code"`
+	Headers    map[string][]string `json:"headers"`
+	BodyBase64 string              `json:"body_base64"`
 }
 
 func NewRegistry(cfg config.PluginConfig) *Registry {
@@ -71,7 +91,6 @@ func NewRegistry(cfg config.PluginConfig) *Registry {
 
 	return &Registry{
 		cfg:     cfg,
-		client:  &http.Client{},
 		plugins: make(map[string]*instance),
 	}
 }
@@ -177,12 +196,12 @@ func (r *Registry) Get(id string) (Info, bool) {
 }
 
 func (r *Registry) ProxyHTTP(w http.ResponseWriter, req *http.Request, id, requestPath string) {
-	manifest, status, ok := r.snapshot(id)
+	manifest, status, rpcClient, ok := r.snapshot(id)
 	if !ok {
 		http.Error(w, "plugin not found", http.StatusNotFound)
 		return
 	}
-	if status != StatusRunning {
+	if status != StatusRunning || rpcClient == nil {
 		http.Error(w, "plugin is not running", http.StatusServiceUnavailable)
 		return
 	}
@@ -193,40 +212,50 @@ func (r *Registry) ProxyHTTP(w http.ResponseWriter, req *http.Request, id, reque
 		return
 	}
 
-	target, err := buildProxyURL(manifest.UpstreamURL, requestPath, req.URL.RawQuery)
+	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		http.Error(w, "invalid upstream", http.StatusBadGateway)
+		http.Error(w, "invalid request", http.StatusBadGateway)
 		return
 	}
 
 	timeoutCtx, cancel := context.WithTimeout(req.Context(), r.cfg.RequestTimeout)
 	defer cancel()
 
-	upstreamReq, err := http.NewRequestWithContext(timeoutCtx, req.Method, target.String(), req.Body)
-	if err != nil {
-		http.Error(w, "invalid request", http.StatusBadGateway)
-		return
+	headers := req.Header.Clone()
+	removeHopByHopHeaders(headers)
+	params := pluginHTTPRequest{
+		Method:     req.Method,
+		Path:       requestPath,
+		RawQuery:   req.URL.RawQuery,
+		Headers:    map[string][]string(headers),
+		BodyBase64: base64.StdEncoding.EncodeToString(body),
 	}
-	upstreamReq.Header = req.Header.Clone()
-	removeHopByHopHeaders(upstreamReq.Header)
 
-	resp, err := r.client.Do(upstreamReq)
-	if err != nil {
-		if errors.Is(timeoutCtx.Err(), context.DeadlineExceeded) {
-			http.Error(w, "upstream timeout", http.StatusGatewayTimeout)
+	var response pluginHTTPResponse
+	if err := rpcClient.Call(timeoutCtx, "plugin.handle_http", params, &response); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(timeoutCtx.Err(), context.DeadlineExceeded) {
+			http.Error(w, "plugin timeout", http.StatusGatewayTimeout)
 			return
 		}
-		http.Error(w, "upstream error", http.StatusBadGateway)
+		http.Error(w, "plugin error", http.StatusBadGateway)
 		return
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
 
-	copyHeader(w.Header(), resp.Header)
+	if response.StatusCode < 100 || response.StatusCode > 599 {
+		http.Error(w, "invalid plugin response", http.StatusBadGateway)
+		return
+	}
+
+	responseBody, err := base64.StdEncoding.DecodeString(response.BodyBase64)
+	if err != nil {
+		http.Error(w, "invalid plugin response", http.StatusBadGateway)
+		return
+	}
+
+	copyHeader(w.Header(), http.Header(response.Headers))
 	removeHopByHopHeaders(w.Header())
-	w.WriteHeader(resp.StatusCode)
-	if _, err := io.Copy(w, resp.Body); err != nil {
+	w.WriteHeader(response.StatusCode)
+	if _, err := w.Write(responseBody); err != nil {
 		return
 	}
 }
@@ -270,21 +299,41 @@ func (r *Registry) startPlugin(ctx context.Context, id string) error {
 		cmd.Dir = manifest.WorkingDir
 	}
 	cmd.Env = mergeEnv(os.Environ(), manifest.Env)
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		r.setStatus(id, StatusFailed, err.Error())
+		return fmt.Errorf("open plugin %q stdin: %w", id, err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		r.setStatus(id, StatusFailed, err.Error())
+		return fmt.Errorf("open plugin %q stdout: %w", id, err)
+	}
+	cmd.Stderr = os.Stderr
+
 	if err := cmd.Start(); err != nil {
 		r.setStatus(id, StatusFailed, err.Error())
 		return fmt.Errorf("start plugin %q: %w", id, err)
 	}
+
+	rpcClient := newStdioRPCClient(stdout, stdin)
+	rpcClient.start(func(err error) {
+		r.handleIPCClosed(id, rpcClient, err)
+	})
 
 	done := make(chan struct{})
 	r.mu.Lock()
 	inst, ok = r.plugins[id]
 	if !ok {
 		r.mu.Unlock()
+		_ = rpcClient.Close()
 		_ = cmd.Process.Kill()
 		return fmt.Errorf("plugin %q not found", id)
 	}
 	inst.cmd = cmd
 	inst.waitDone = done
+	inst.rpc = rpcClient
 	inst.updatedAt = time.Now()
 	r.mu.Unlock()
 
@@ -292,8 +341,9 @@ func (r *Registry) startPlugin(ctx context.Context, id string) error {
 
 	startupCtx, cancel := context.WithTimeout(ctx, r.cfg.StartupTimeout)
 	defer cancel()
-	if err := r.waitForHealth(startupCtx, manifest); err != nil {
+	if err := r.waitForHealth(startupCtx, rpcClient, done); err != nil {
 		r.setStatus(id, StatusFailed, err.Error())
+		_ = rpcClient.Close()
 		_ = cmd.Process.Kill()
 		return fmt.Errorf("plugin %q health check failed: %w", id, err)
 	}
@@ -304,7 +354,7 @@ func (r *Registry) startPlugin(ctx context.Context, id string) error {
 	default:
 	}
 
-	healthCtx, healthCancel := context.WithCancel(context.Background())
+	healthCtx, healthCancel := newPluginHealthContext()
 	started := false
 	r.mu.Lock()
 	inst, ok = r.plugins[id]
@@ -322,8 +372,12 @@ func (r *Registry) startPlugin(ctx context.Context, id string) error {
 		return fmt.Errorf("plugin %q exited during startup", id)
 	}
 
-	go r.healthLoop(healthCtx, id, manifest)
+	go r.healthLoop(healthCtx, id, rpcClient)
 	return nil
+}
+
+func newPluginHealthContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(context.Background())
 }
 
 func (r *Registry) stopPlugin(ctx context.Context, id string, status Status, message string) error {
@@ -343,12 +397,18 @@ func (r *Registry) stopPlugin(ctx context.Context, id string, status Status, mes
 
 	cmd := inst.cmd
 	done := inst.waitDone
+	rpcClient := inst.rpc
 	inst.cmd = nil
 	inst.waitDone = nil
+	inst.rpc = nil
 	inst.status = status
 	inst.lastError = message
 	inst.updatedAt = time.Now()
 	r.mu.Unlock()
+
+	if rpcClient != nil {
+		_ = rpcClient.Close()
+	}
 
 	if cmd == nil || cmd.Process == nil {
 		return nil
@@ -374,35 +434,46 @@ func (r *Registry) watchProcess(id string, cmd *exec.Cmd, done chan struct{}) {
 	close(done)
 
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	inst, ok := r.plugins[id]
 	if !ok || inst.cmd != cmd {
+		r.mu.Unlock()
 		return
 	}
 	if inst.status == StatusStopped || inst.status == StatusDisabled {
+		r.mu.Unlock()
 		return
 	}
 
+	rpcClient := inst.rpc
+	inst.rpc = nil
 	inst.status = StatusFailed
 	inst.updatedAt = time.Now()
-	if err != nil {
-		inst.lastError = err.Error()
-	} else {
-		inst.lastError = "process exited"
+	if inst.lastError == "" {
+		if err != nil {
+			inst.lastError = err.Error()
+		} else {
+			inst.lastError = "process exited"
+		}
+	}
+	r.mu.Unlock()
+
+	if rpcClient != nil {
+		_ = rpcClient.Close()
 	}
 }
 
-func (r *Registry) waitForHealth(ctx context.Context, manifest Manifest) error {
+func (r *Registry) waitForHealth(ctx context.Context, rpcClient *stdioRPCClient, done <-chan struct{}) error {
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
-		if err := r.checkHealth(ctx, manifest); err == nil {
+		if err := r.checkHealth(ctx, rpcClient); err == nil {
 			return nil
 		}
 
 		select {
+		case <-done:
+			return fmt.Errorf("process exited during health check")
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
@@ -410,7 +481,7 @@ func (r *Registry) waitForHealth(ctx context.Context, manifest Manifest) error {
 	}
 }
 
-func (r *Registry) healthLoop(ctx context.Context, id string, manifest Manifest) {
+func (r *Registry) healthLoop(ctx context.Context, id string, rpcClient *stdioRPCClient) {
 	ticker := time.NewTicker(r.cfg.HealthInterval)
 	defer ticker.Stop()
 
@@ -419,36 +490,25 @@ func (r *Registry) healthLoop(ctx context.Context, id string, manifest Manifest)
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := r.checkHealth(ctx, manifest); err != nil {
-				r.setHealthStatus(id, StatusUnhealthy, err.Error())
+			if err := r.checkHealth(ctx, rpcClient); err != nil {
+				r.setHealthStatus(id, rpcClient, StatusUnhealthy, err.Error())
 			} else {
-				r.setHealthStatus(id, StatusRunning, "")
+				r.setHealthStatus(id, rpcClient, StatusRunning, "")
 			}
 		}
 	}
 }
 
-func (r *Registry) checkHealth(ctx context.Context, manifest Manifest) error {
-	healthURL, err := buildProxyURL(manifest.UpstreamURL, manifest.HealthPath, "")
-	if err != nil {
+func (r *Registry) checkHealth(ctx context.Context, rpcClient *stdioRPCClient) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, r.cfg.RequestTimeout)
+	defer cancel()
+
+	var result pluginHealthResult
+	if err := rpcClient.Call(timeoutCtx, "plugin.health", map[string]interface{}{}, &result); err != nil {
 		return err
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL.String(), nil)
-	if err != nil {
-		return err
-	}
-
-	resp, err := r.client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("health returned status %d", resp.StatusCode)
+	if !result.OK {
+		return fmt.Errorf("plugin health returned ok=false")
 	}
 	return nil
 }
@@ -466,12 +526,15 @@ func (r *Registry) setStatus(id string, status Status, message string) {
 	inst.updatedAt = time.Now()
 }
 
-func (r *Registry) setHealthStatus(id string, status Status, message string) {
+func (r *Registry) setHealthStatus(id string, rpcClient *stdioRPCClient, status Status, message string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	inst, ok := r.plugins[id]
 	if !ok {
+		return
+	}
+	if inst.rpc != rpcClient {
 		return
 	}
 	if inst.status != StatusRunning && inst.status != StatusUnhealthy {
@@ -482,15 +545,40 @@ func (r *Registry) setHealthStatus(id string, status Status, message string) {
 	inst.updatedAt = time.Now()
 }
 
-func (r *Registry) snapshot(id string) (Manifest, Status, bool) {
+func (r *Registry) handleIPCClosed(id string, rpcClient *stdioRPCClient, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	inst, ok := r.plugins[id]
+	if !ok || inst.rpc != rpcClient {
+		return
+	}
+	if inst.status == StatusStopped || inst.status == StatusDisabled {
+		return
+	}
+
+	inst.rpc = nil
+	inst.status = StatusFailed
+	inst.updatedAt = time.Now()
+	if inst.lastError != "" {
+		return
+	}
+	if err != nil {
+		inst.lastError = fmt.Sprintf("ipc closed: %v", err)
+	} else {
+		inst.lastError = "ipc closed"
+	}
+}
+
+func (r *Registry) snapshot(id string) (Manifest, Status, *stdioRPCClient, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	inst, ok := r.plugins[id]
 	if !ok {
-		return Manifest{}, "", false
+		return Manifest{}, "", nil, false
 	}
-	return inst.manifest, inst.status, true
+	return inst.manifest, inst.status, inst.rpc, true
 }
 
 func infoFromInstance(inst *instance) Info {
@@ -502,7 +590,7 @@ func infoFromInstance(inst *instance) Info {
 		Description: inst.manifest.Description,
 		Status:      inst.status,
 		Error:       inst.lastError,
-		UpstreamURL: inst.manifest.UpstreamURL,
+		Transport:   TransportStdioJSONRPC,
 		Routes:      append([]Route(nil), inst.manifest.Routes...),
 		UpdatedAt:   inst.updatedAt,
 	}
@@ -556,23 +644,6 @@ func pathMatchesPrefix(path, prefix string) bool {
 	}
 	prefix = strings.TrimRight(prefix, "/")
 	return path == prefix || strings.HasPrefix(path, prefix+"/")
-}
-
-func buildProxyURL(upstream, requestPath, rawQuery string) (*url.URL, error) {
-	parsed, err := url.Parse(upstream)
-	if err != nil {
-		return nil, err
-	}
-
-	requestPath = normalizeRequestPath(requestPath)
-	basePath := strings.TrimRight(parsed.Path, "/")
-	if basePath == "" {
-		parsed.Path = requestPath
-	} else {
-		parsed.Path = basePath + requestPath
-	}
-	parsed.RawQuery = rawQuery
-	return parsed, nil
 }
 
 func copyHeader(dst, src http.Header) {

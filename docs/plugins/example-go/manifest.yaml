@@ -1,0 +1,16 @@
+id: "example-go"
+name: "Example Go Plugin"
+version: "0.1.0"
+enabled: true
+description: "Example stdio JSON-RPC plugin written in Go"
+command: "/opt/host-agent/plugins/example-go/example-go-plugin"
+working_dir: "/opt/host-agent/plugins/example-go"
+env:
+  LOG_LEVEL: "info"
+routes:
+  - path_prefix: "/status"
+    methods: ["GET"]
+  - path_prefix: "/echo"
+    methods: ["GET", "POST"]
+  - path_prefix: "/items"
+    methods: ["GET", "POST", "DELETE"]

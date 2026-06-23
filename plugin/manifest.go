@@ -2,8 +2,6 @@ package plugin
 
 import (
 	"fmt"
-	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -38,8 +36,6 @@ type Manifest struct {
 	Args        []string          `yaml:"args" json:"args,omitempty"`
 	WorkingDir  string            `yaml:"working_dir" json:"working_dir,omitempty"`
 	Env         map[string]string `yaml:"env" json:"env,omitempty"`
-	UpstreamURL string            `yaml:"upstream_url" json:"upstream_url"`
-	HealthPath  string            `yaml:"health_path" json:"health_path"`
 	Routes      []Route           `yaml:"routes" json:"routes"`
 }
 
@@ -107,18 +103,6 @@ func validateManifest(manifest *Manifest) error {
 	if manifest.Command == "" {
 		return fmt.Errorf("command is required")
 	}
-	if manifest.UpstreamURL == "" {
-		return fmt.Errorf("upstream_url is required")
-	}
-	if manifest.HealthPath == "" {
-		manifest.HealthPath = "/health"
-	}
-	if !strings.HasPrefix(manifest.HealthPath, "/") {
-		return fmt.Errorf("health_path must start with /")
-	}
-	if err := validateLoopbackHTTPURL(manifest.UpstreamURL); err != nil {
-		return err
-	}
 	if len(manifest.Routes) == 0 {
 		return fmt.Errorf("at least one route is required")
 	}
@@ -141,34 +125,6 @@ func validateManifest(manifest *Manifest) error {
 			}
 			route.Methods[methodIndex] = normalized
 		}
-	}
-
-	return nil
-}
-
-func validateLoopbackHTTPURL(raw string) error {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return fmt.Errorf("upstream_url %q is invalid: %w", raw, err)
-	}
-	if parsed.Scheme != "http" {
-		return fmt.Errorf("upstream_url must use http")
-	}
-	if parsed.User != nil {
-		return fmt.Errorf("upstream_url must not include user info")
-	}
-	if parsed.Host == "" {
-		return fmt.Errorf("upstream_url must include a host")
-	}
-
-	host := parsed.Hostname()
-	if strings.EqualFold(host, "localhost") {
-		return nil
-	}
-
-	ip := net.ParseIP(host)
-	if ip == nil || !ip.IsLoopback() {
-		return fmt.Errorf("upstream_url host %q must be loopback", host)
 	}
 
 	return nil
