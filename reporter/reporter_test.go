@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"host-agent/config"
-	"host-agent/models"
+	"github.com/CUTe-CCNL/host-agent/config"
+	"github.com/CUTe-CCNL/host-agent/models"
 )
 
 func newTestConfig() *config.Config {
@@ -206,7 +206,7 @@ func TestReporterStartStop(t *testing.T) {
 	timeout := time.After(2 * time.Second)
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
-	
+
 	requestReceived := false
 	for !requestReceived {
 		select {

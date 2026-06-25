@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"host-agent/pkg/pluginipc"
+	"github.com/CUTe-CCNL/host-agent/pkg/pluginipc"
 )
 
 func TestExampleHandlerRoutesMultiplePaths(t *testing.T) {

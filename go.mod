@@ -1,4 +1,4 @@
-module host-agent
+module github.com/CUTe-CCNL/host-agent
 
 go 1.26.3
 

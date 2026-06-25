@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"host-agent/pkg/pluginipc"
+	"github.com/CUTe-CCNL/host-agent/pkg/pluginipc"
 )
 
 type testHandler struct {

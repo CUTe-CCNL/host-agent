@@ -1,7 +1,7 @@
 package collector
 
 import (
-	"host-agent/models"
+	"github.com/CUTe-CCNL/host-agent/models"
 
 	"github.com/shirou/gopsutil/v4/mem"
 )

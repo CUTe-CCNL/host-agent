@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	"host-agent/collector"
-	"host-agent/config"
-	"host-agent/models"
+	"github.com/CUTe-CCNL/host-agent/collector"
+	"github.com/CUTe-CCNL/host-agent/config"
+	"github.com/CUTe-CCNL/host-agent/models"
 )
 
 type Reporter struct {

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"host-agent/config"
+	"github.com/CUTe-CCNL/host-agent/config"
 )
 
 type Server struct {

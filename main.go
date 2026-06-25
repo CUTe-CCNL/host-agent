@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"host-agent/config"
-	"host-agent/service"
+	"github.com/CUTe-CCNL/host-agent/config"
+	"github.com/CUTe-CCNL/host-agent/service"
 )
 
 var (

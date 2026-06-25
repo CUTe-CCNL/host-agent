@@ -6,10 +6,10 @@ import (
 	"log"
 	"time"
 
-	"host-agent/api"
-	"host-agent/config"
-	agentplugin "host-agent/plugin"
-	"host-agent/reporter"
+	"github.com/CUTe-CCNL/host-agent/api"
+	"github.com/CUTe-CCNL/host-agent/config"
+	agentplugin "github.com/CUTe-CCNL/host-agent/plugin"
+	"github.com/CUTe-CCNL/host-agent/reporter"
 
 	"github.com/gorilla/mux"
 	"github.com/kardianos/service"

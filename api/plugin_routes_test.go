@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"host-agent/config"
-	agentplugin "host-agent/plugin"
+	"github.com/CUTe-CCNL/host-agent/config"
+	agentplugin "github.com/CUTe-CCNL/host-agent/plugin"
 
 	"github.com/gorilla/mux"
 )

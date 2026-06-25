@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"host-agent/config"
-	"host-agent/models"
+	"github.com/CUTe-CCNL/host-agent/config"
+	"github.com/CUTe-CCNL/host-agent/models"
 )
 
 func newTestConfig() *config.Config {

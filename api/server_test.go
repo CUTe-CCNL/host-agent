@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"host-agent/config"
+	"github.com/CUTe-CCNL/host-agent/config"
 
 	"github.com/gorilla/mux"
 )

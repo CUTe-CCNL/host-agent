@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"time"
 
-	"host-agent/models"
+	"github.com/CUTe-CCNL/host-agent/models"
 
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/load"

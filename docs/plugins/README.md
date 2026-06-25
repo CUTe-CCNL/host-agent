@@ -73,7 +73,7 @@ replace host-agent => /path/to/host-agent
 然後在 plugin 程式中引用:
 
 ```go
-import "host-agent/pkg/pluginipc"
+import "github.com/CUTe-CCNL/host-agent/pkg/pluginipc"
 ```
 
 ### plugin.health

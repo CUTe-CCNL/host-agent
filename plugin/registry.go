@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"host-agent/config"
+	"github.com/CUTe-CCNL/host-agent/config"
 )
 
 type Status string

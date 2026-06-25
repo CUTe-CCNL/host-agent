@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"host-agent/config"
+	"github.com/CUTe-CCNL/host-agent/config"
 
 	"github.com/gorilla/mux"
 )

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"host-agent/config"
-	"host-agent/models"
+	"github.com/CUTe-CCNL/host-agent/config"
+	"github.com/CUTe-CCNL/host-agent/models"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )

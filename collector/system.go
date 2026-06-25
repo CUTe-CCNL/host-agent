@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"host-agent/models"
+	"github.com/CUTe-CCNL/host-agent/models"
 
 	"github.com/shirou/gopsutil/v4/host"
 	"github.com/shirou/gopsutil/v4/process"

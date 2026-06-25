@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"host-agent/pkg/pluginipc"
+	"github.com/CUTe-CCNL/host-agent/pkg/pluginipc"
 )
 
 type exampleHandler struct{}

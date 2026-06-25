@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	"host-agent/collector"
-	"host-agent/config"
-	"host-agent/models"
-	agentplugin "host-agent/plugin"
+	"github.com/CUTe-CCNL/host-agent/collector"
+	"github.com/CUTe-CCNL/host-agent/config"
+	"github.com/CUTe-CCNL/host-agent/models"
+	agentplugin "github.com/CUTe-CCNL/host-agent/plugin"
 
 	"github.com/gorilla/mux"
 )
