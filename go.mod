@@ -4,7 +4,7 @@ go 1.26.3
 
 require (
 	github.com/gorilla/mux v1.8.1
-	github.com/kardianos/service v1.2.4
+	github.com/kardianos/service v1.3.0
 	github.com/rabbitmq/amqp091-go v1.12.0
 	github.com/shirou/gopsutil/v4 v4.26.6
 	gopkg.in/yaml.v3 v3.0.1
